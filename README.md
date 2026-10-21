@@ -89,6 +89,17 @@ pnpm dev
 - Site : http://localhost:3000
 - Administration : http://localhost:3001 — compte créé par `db:seed` avec `SEED_MANAGER_EMAIL` / `SEED_MANAGER_PASSWORD` (à changer après la première connexion, menu « Mon compte »).
 
+### Importer le catalogue (production)
+
+Remplissez `catalogue/accessoires.csv`, `catalogue/telephones.csv` et `catalogue/photos/` (dossier exclu de Git ; guide : `catalogue/LISEZMOI.md`), puis :
+
+```bash
+node scripts/import-catalogue.mjs --api https://<api>.onrender.com --essai   # vérifie tout, ne crée rien
+node scripts/import-catalogue.mjs --api https://<api>.onrender.com           # importe
+```
+
+Le script passe par l’API avec le compte Responsable : stock initial tracé au coût indiqué, photos envoyées sur Cloudinary, téléphones mis en vente seulement avec au moins une photo. Il peut être relancé sans créer de doublon.
+
 ### Données de démonstration
 
 `db:seed:demo` crée 13 accessoires, 5 pièces détachées, 4 téléphones d’occasion, 11 tarifs de réparation et deux comptes (`technicien@demo.thstore.local`, `vendeur@demo.thstore.local`, mot de passe affiché par le script). Tout est marqué « Démo » dans l’interface. Les photos proviennent d’Unsplash (licence libre) et illustrent des types d’articles : elles ne représentent pas un stock réel.
