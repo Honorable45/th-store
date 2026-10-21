@@ -1,0 +1,12 @@
+node_modules/
+.pgdata/
+dist/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+backend/uploads/
+.vercel
