@@ -6,7 +6,7 @@ services:
     runtime: node
     region: frankfurt
     plan: starter
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @thstore/backend build
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @thstore/backend build
     startCommand: pnpm --filter @thstore/backend start:prod
     healthCheckPath: /health
     envVars:
@@ -18,24 +18,28 @@ services:
         fromDatabase:
           name: thstore-db
           property: connectionString
+      # URL du site (projet Vercel « frontend »), sans / final. Ex. https://thstore.vercel.app
       - key: WEB_ORIGIN
         sync: false
+      # URL de l'administration (projet Vercel « admin »). Ex. https://thstore-admin.vercel.app
       - key: ADMIN_ORIGIN
         sync: false
+      # URL de ce service Render. Ex. https://thstore-backend.onrender.com
       - key: API_PUBLIC_URL
         sync: false
       - key: APP_SECRET
         generateValue: true
+      # openssl rand -base64 32 — à conserver dans un coffre : sans elle, les IMEI sont illisibles.
       - key: DATA_ENCRYPTION_KEY
         sync: false
       - key: COOKIE_SECURE
         value: "true"
+      # Les navigateurs passent par le relais /api de Vercel, puis par le proxy Render.
       - key: TRUST_PROXY
         value: "2"
-      - key: BUSINESS_TIMEZONE
-        value: Africa/Lome
       - key: STORAGE_DRIVER
         value: s3
+      # Stockage des photos (Cloudflare R2 recommandé) : le disque Render est effacé à chaque déploiement.
       - key: S3_ENDPOINT
         sync: false
       - key: S3_REGION
@@ -48,6 +52,7 @@ services:
         sync: false
       - key: S3_PUBLIC_URL
         sync: false
+      # Facultatif : laisser vide désactive le paiement mobile en ligne.
       - key: PAYGATE_API_KEY
         sync: false
 

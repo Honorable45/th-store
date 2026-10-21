@@ -125,7 +125,7 @@ pnpm dev
 | `DATABASE_URL` | oui | Connexion PostgreSQL |
 | `APP_SECRET` | oui | ≥ 32 caractères. Signe les empreintes (sessions, codes d’avis, IMEI) |
 | `DATA_ENCRYPTION_KEY` | oui | 32 octets en base64. Chiffre les IMEI (AES-256-GCM). **Ne jamais la changer** sans migrer les IMEI existants |
-| `WEB_ORIGIN` | oui en prod | URL publique du site (liens de suivi et d’avis) |
+| `WEB_ORIGIN` | oui en prod | URL publique du site (CORS, liens d’avis) |
 | `ADMIN_ORIGIN` | oui en prod | URL de l’administration (CORS) |
 | `API_PUBLIC_URL` | oui en prod | URL publique de l’API (images stockées localement) |
 | `PORT` | non | 4000 par défaut |
@@ -221,19 +221,36 @@ La base de test est désignée par `TEST_DATABASE_URL` (par défaut `postgresql:
 
 ## Déploiement (Vercel + Render)
 
+Trois services : l’API sur Render, le site et l’administration sur deux projets Vercel distincts. Les URL ci-dessous sont des exemples : remplacez-les par celles que Render et Vercel vous attribuent (sans `/` final).
+
 ### 1. Base de données et API sur Render
-1. Créez le service depuis `render.yaml` (« New → Blueprint ») : il crée l’API et une base PostgreSQL 16.
-2. Renseignez les variables marquées `sync: false` : `WEB_ORIGIN` (URL Vercel), `API_PUBLIC_URL` (URL Render), `DATA_ENCRYPTION_KEY`, et le stockage S3 (voir ci-dessous).
-3. Le démarrage applique les migrations (`prisma migrate deploy`). Lancez une fois les données de référence depuis le shell Render :
+1. Créez le service depuis `render.yaml` (« New → Blueprint ») : il crée l’API et une base PostgreSQL 16. `APP_SECRET` est généré automatiquement.
+2. Renseignez les variables marquées `sync: false` :
+
+| Variable | Valeur |
+|---|---|
+| `WEB_ORIGIN` | URL du site, ex. `https://thstore.vercel.app` |
+| `ADMIN_ORIGIN` | URL de l’administration, ex. `https://thstore-admin.vercel.app` |
+| `API_PUBLIC_URL` | URL du service Render, ex. `https://thstore-backend.onrender.com` |
+| `DATA_ENCRYPTION_KEY` | `openssl rand -base64 32` — **à sauvegarder hors de Render** |
+| `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL` | stockage des photos (voir ci-dessous) |
+| `PAYGATE_API_KEY` | facultatif, laisser vide |
+
+3. Le démarrage applique les migrations (`prisma migrate deploy`). Créez ensuite une fois le compte Responsable et les données de référence depuis le shell Render :
    `SEED_MANAGER_EMAIL=… SEED_MANAGER_PASSWORD=… pnpm --filter @thstore/backend db:seed`
 4. Vérifiez `https://<api>.onrender.com/health` → `{"status":"ok"}`.
 
-Le disque d’un service Render est éphémère : **utilisez `STORAGE_DRIVER=s3` en production**, sinon les photos seraient perdues au redéploiement.
+Le disque d’un service Render est éphémère : **utilisez `STORAGE_DRIVER=s3` en production** (déjà réglé dans `render.yaml`), sinon les photos seraient perdues au redéploiement. Avec Cloudflare R2 : `S3_ENDPOINT=https://<id-compte>.r2.cloudflarestorage.com`, `S3_REGION=auto`, `S3_PUBLIC_URL` = domaine public du bucket.
 
-### 2. Site sur Vercel
-1. Importez le dépôt, **Root Directory : `frontend`** (le fichier `vercel.json` installe l’espace de travail pnpm).
-2. Variables : `API_URL=https://<api>.onrender.com`, `NEXT_PUBLIC_SITE_URL=https://<votre-domaine>`.
-3. Après déploiement, mettez à jour `WEB_ORIGIN` côté API si le domaine change.
+### 2. Site et administration sur Vercel
+Créez **deux projets** à partir du même dépôt (le `vercel.json` de chaque dossier installe l’espace de travail pnpm depuis la racine) :
+
+| Projet | Root Directory | `API_URL` | `NEXT_PUBLIC_SITE_URL` |
+|---|---|---|---|
+| Site | `frontend` | `https://thstore-backend.onrender.com` | URL du site |
+| Administration | `admin` | `https://thstore-backend.onrender.com` | URL du **site** (liens « Voir le site », QR codes d’avis) |
+
+Si vous changez de domaine (domaine personnalisé), mettez à jour `WEB_ORIGIN` / `ADMIN_ORIGIN` sur Render et `NEXT_PUBLIC_SITE_URL` sur les deux projets Vercel, puis redéployez.
 
 ### 3. Sauvegardes
 - Render PostgreSQL (offres payantes) : sauvegardes quotidiennes et restauration à un instant donné.

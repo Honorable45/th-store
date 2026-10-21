@@ -1,4 +1,4 @@
-import { MapPin, Package, Phone, Smartphone } from 'lucide-react';
+import { MapPin, Navigation, Package, Phone, Smartphone } from 'lucide-react';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -7,6 +7,7 @@ import { SocialLinks } from '@/components/site/social';
 import { WhatsAppButton } from '@/components/site/whatsapp';
 import { cn } from '@/lib/cn';
 import { formatPhone } from '@/lib/format';
+import { directionsUrl, embedMapUrl } from '@/lib/maps';
 import { todayOpening } from '@/lib/opening';
 import { serverGet } from '@/lib/server-api';
 import type { PublicSettings } from '@/lib/types';
@@ -25,6 +26,8 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
   const phone = s?.phone ?? '+22870858801';
   const address = [s?.addressLine, s?.city].filter(Boolean).join(', ');
   const opening = s ? todayOpening(s.openingHours) : null;
+  const directions = directionsUrl(s);
+  const map = embedMapUrl(s);
 
   const tabs = [
     { key: 'telephones', label: 'Téléphones', href: '/boutique', Icon: Smartphone },
@@ -65,9 +68,9 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
               <a href={`tel:${phone}`} className="glass inline-flex h-11 items-center gap-2 rounded-full px-5 text-[14.5px] font-medium text-white hover:bg-white/25">
                 <Phone className="size-4" /> Appeler
               </a>
-              {s?.mapUrl && (
-                <a href={s.mapUrl} target="_blank" rel="noopener noreferrer" className="glass inline-flex h-11 items-center gap-2 rounded-full px-5 text-[14.5px] font-medium text-white hover:bg-white/25">
-                  <MapPin className="size-4" /> Itinéraire
+              {directions && (
+                <a href={directions} target="_blank" rel="noopener noreferrer" className="glass inline-flex h-11 items-center gap-2 rounded-full px-5 text-[14.5px] font-medium text-white hover:bg-white/25">
+                  <Navigation className="size-4" /> Itinéraire
                 </a>
               )}
               <SocialLinks settings={s} className="[&>li:first-child]:hidden" />
@@ -88,6 +91,26 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
         </nav>
         <div className="mt-6">{rayon === 'accessoires' ? <AccessoriesListing sp={sp} whatsapp={s?.whatsapp ?? null} /> : <PhonesListing sp={sp} whatsapp={s?.whatsapp ?? null} />}</div>
       </div>
+
+      {/* Venir à la boutique */}
+      {map && directions && (
+        <section id="itineraire" className="container-page mt-16 scroll-mt-40">
+          <div className="overflow-hidden rounded-3xl border border-line bg-surface shadow-card lg:grid lg:grid-cols-5">
+            <div className="flex flex-col justify-center gap-4 p-6 sm:p-8 lg:col-span-2">
+              <h2 className="display text-[30px] sm:text-[36px]">Venir à la boutique</h2>
+              {address && (
+                <p className="flex items-start gap-2 text-[15px] text-ink-2">
+                  <MapPin className="mt-0.5 size-4 shrink-0 text-ochre" /> {address}
+                </p>
+              )}
+              <a href={directions} target="_blank" rel="noopener noreferrer" className="glass-dark inline-flex h-12 items-center justify-center gap-2 self-start rounded-full px-6 text-[15px] font-medium text-white transition-transform hover:-translate-y-0.5">
+                <Navigation className="size-4" /> Lancer l’itinéraire
+              </a>
+            </div>
+            <iframe title={`Carte : ${s?.shopName ?? 'TH Store'}`} src={map} loading="lazy" referrerPolicy="no-referrer-when-downgrade" className="h-72 w-full border-0 sm:h-96 lg:col-span-3 lg:h-full lg:min-h-96" />
+          </div>
+        </section>
+      )}
     </>
   );
 }

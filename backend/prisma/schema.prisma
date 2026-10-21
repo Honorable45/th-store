@@ -121,6 +121,9 @@ model BusinessSettings {
   city                  String?
   country               String?
   mapUrl                String?
+  // Position GPS de la boutique (carte et itinéraire sur le site).
+  latitude              Float?
+  longitude             Float?
   legalName             String?
   legalForm             String?
   registrationNumber    String?

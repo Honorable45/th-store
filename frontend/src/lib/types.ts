@@ -112,6 +112,7 @@ export interface PublicSettings {
   city: string | null;
   country: string | null;
   mapUrl: string | null;
+  location: { latitude: number; longitude: number } | null;
   legal: {
     legalName: string | null;
     legalForm: string | null;

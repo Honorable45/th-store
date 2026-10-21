@@ -10,13 +10,15 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsIn,
   IsInt,
+  IsLatitude,
+  IsLongitude,
   IsOptional,
   IsString,
   IsUrl,
@@ -51,6 +53,8 @@ class SettingsDto {
   @IsOptional() @IsUrl({ protocols: ['https'], require_protocol: true }, { message: 'Le lien de carte doit être une URL https.' })
   @MaxLength(500)
   mapUrl?: string | null;
+  @IsOptional() @Transform(({ value }) => (value === null || value === '' ? null : Number(value))) @IsLatitude({ message: 'Latitude invalide.' }) latitude?: number | null;
+  @IsOptional() @Transform(({ value }) => (value === null || value === '' ? null : Number(value))) @IsLongitude({ message: 'Longitude invalide.' }) longitude?: number | null;
   @IsOptional() @IsString() @MaxLength(160) legalName?: string | null;
   @IsOptional() @IsString() @MaxLength(80) legalForm?: string | null;
   @IsOptional() @IsString() @MaxLength(80) registrationNumber?: string | null;
@@ -129,6 +133,7 @@ export class SettingsController {
       city: s.city,
       country: s.country,
       mapUrl: s.mapUrl,
+      location: s.latitude !== null && s.longitude !== null ? { latitude: s.latitude, longitude: s.longitude } : null,
       legal: {
         legalName: s.legalName,
         legalForm: s.legalForm,
