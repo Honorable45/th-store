@@ -14,16 +14,9 @@ export interface AppConfig {
   sessionTtlHours: number;
   cookieSecure: boolean;
   storage: {
-    driver: 'local' | 's3';
+    driver: 'local' | 'cloudinary';
     localDir: string;
-    s3: {
-      endpoint?: string;
-      region: string;
-      bucket: string;
-      accessKeyId: string;
-      secretAccessKey: string;
-      publicUrl: string;
-    };
+    cloudinary: { cloudName: string; apiKey: string; apiSecret: string } | null;
   };
   paygateApiKey?: string;
 }
@@ -51,10 +44,15 @@ export function loadConfig(): AppConfig {
     throw new Error('DATA_ENCRYPTION_KEY doit représenter exactement 32 octets encodés en base64.');
   }
 
-  const driver = (process.env.STORAGE_DRIVER ?? 'local') as 'local' | 's3';
-  if (driver !== 'local' && driver !== 's3') {
-    throw new Error('STORAGE_DRIVER doit valoir "local" ou "s3".');
+  // Images sur Cloudinary dès que CLOUDINARY_URL est renseignée (cloudinary://CLE:SECRET@NOM_DU_CLOUD), sinon sur disque.
+  const cloudinaryUrl = process.env.CLOUDINARY_URL?.trim();
+  let cloudinary: AppConfig['storage']['cloudinary'] = null;
+  if (cloudinaryUrl) {
+    const m = cloudinaryUrl.match(/^cloudinary:\/\/([^:@\s]+):([^@\s]+)@([^/\s?]+)$/);
+    if (!m) throw new Error('CLOUDINARY_URL doit avoir la forme cloudinary://CLE_API:SECRET_API@NOM_DU_CLOUD.');
+    cloudinary = { apiKey: m[1], apiSecret: m[2], cloudName: m[3] };
   }
+  const driver = cloudinary ? 'cloudinary' : 'local';
 
   const port = Number(process.env.PORT ?? 4000);
 
@@ -72,14 +70,7 @@ export function loadConfig(): AppConfig {
     storage: {
       driver,
       localDir: process.env.LOCAL_UPLOAD_DIR ?? './uploads',
-      s3: {
-        endpoint: process.env.S3_ENDPOINT || undefined,
-        region: process.env.S3_REGION ?? 'auto',
-        bucket: driver === 's3' ? required('S3_BUCKET') : '',
-        accessKeyId: driver === 's3' ? required('S3_ACCESS_KEY_ID') : '',
-        secretAccessKey: driver === 's3' ? required('S3_SECRET_ACCESS_KEY') : '',
-        publicUrl: driver === 's3' ? required('S3_PUBLIC_URL').replace(/\/$/, '') : '',
-      },
+      cloudinary,
     },
     paygateApiKey: process.env.PAYGATE_API_KEY?.trim() || undefined,
   };

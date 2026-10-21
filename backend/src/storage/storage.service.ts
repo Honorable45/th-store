@@ -1,4 +1,4 @@
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { v2 as cloudinary } from 'cloudinary';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -6,8 +6,10 @@ import sharp from 'sharp';
 import { CryptoService } from '../common/crypto.service';
 import { loadConfig } from '../config/env';
 
-/** Largeurs générées pour chaque image publique (WebP). */
+/** Largeurs générées pour chaque image publique (WebP) en stockage local. Cloudinary redimensionne à la volée. */
 export const IMAGE_WIDTHS = [480, 960, 1600] as const;
+/** Dossier racine du compte Cloudinary. */
+const CLOUDINARY_ROOT = 'thstore';
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 const ACCEPTED_FORMATS = new Set(['jpeg', 'png', 'webp', 'heif', 'avif']);
 
@@ -28,25 +30,23 @@ export interface StoredImage {
  * - Fichiers publics (photos du catalogue) : servis directement.
  *   Fichiers privés (justificatifs, photos envoyées par les clients) : préfixe « private/ »,
  *   servis uniquement par une route authentifiée.
- * - Pilote « local » (disque) ou « s3 » (S3, Cloudflare R2, Backblaze B2…).
+ * - Pilote « local » (disque, développement) ou « cloudinary » (production).
+ *   Sur Cloudinary, les fichiers privés sont de type « authenticated » : accessibles seulement par URL signée,
+ *   lue par l'API elle-même ; leur adresse n'est jamais transmise au navigateur.
  */
 @Injectable()
 export class StorageService {
   private readonly config = loadConfig();
   private readonly logger = new Logger(StorageService.name);
-  private readonly s3 =
-    this.config.storage.driver === 's3'
-      ? new S3Client({
-          region: this.config.storage.s3.region,
-          endpoint: this.config.storage.s3.endpoint,
-          credentials: {
-            accessKeyId: this.config.storage.s3.accessKeyId,
-            secretAccessKey: this.config.storage.s3.secretAccessKey,
-          },
-        })
-      : null;
+  private readonly cloud = this.config.storage.cloudinary;
 
-  constructor(private readonly crypto: CryptoService) {}
+  constructor(private readonly crypto: CryptoService) {
+    if (this.cloud) {
+      cloudinary.config({ cloud_name: this.cloud.cloudName, api_key: this.cloud.apiKey, api_secret: this.cloud.apiSecret, secure: true, analytics: false });
+    } else if (this.config.nodeEnv === 'production') {
+      this.logger.warn('CLOUDINARY_URL absente : les images sont stockées sur le disque du serveur et seront perdues au prochain déploiement.');
+    }
+  }
 
   get localRoot() {
     return resolve(this.config.storage.localDir);
@@ -58,6 +58,12 @@ export class StorageService {
     const key = `${folder}/${new Date().toISOString().slice(0, 7)}/${this.crypto.randomToken(12)}`;
     let width = meta.width ?? 0;
     let height = meta.height ?? 0;
+    if (this.cloud) {
+      // Une seule version, la plus grande : Cloudinary sert ensuite la largeur demandée.
+      const { data, info } = await sharp(buffer).rotate().resize({ width: IMAGE_WIDTHS[IMAGE_WIDTHS.length - 1], withoutEnlargement: true }).webp({ quality: 80 }).toBuffer({ resolveWithObject: true });
+      await this.cloudUpload(data, `${CLOUDINARY_ROOT}/${key}`, 'image', 'upload');
+      return { key, width: info.width, height: info.height };
+    }
     for (const w of IMAGE_WIDTHS) {
       const { data, info } = await sharp(buffer)
         .rotate() // applique l'orientation EXIF avant de supprimer les métadonnées
@@ -89,10 +95,10 @@ export class StorageService {
     if (!/^private\/[a-z]+\/\d{4}-\d{2}\/[A-Za-z0-9_-]+\.(webp|pdf)$/.test(key)) throw new NotFoundException();
     const contentType = key.endsWith('.pdf') ? 'application/pdf' : 'image/webp';
     try {
-      if (this.s3) {
-        const res = await this.s3.send(new GetObjectCommand({ Bucket: this.config.storage.s3.bucket, Key: key }));
-        const bytes = await res.Body!.transformToByteArray();
-        return { data: Buffer.from(bytes), contentType };
+      if (this.cloud) {
+        const res = await fetch(this.privateCloudUrl(key));
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return { data: Buffer.from(await res.arrayBuffer()), contentType };
       }
       return { data: await readFile(join(this.localRoot, key)), contentType };
     } catch {
@@ -103,21 +109,50 @@ export class StorageService {
   /** URL publique de la plus grande déclinaison (le frontend dérive les autres largeurs). */
   publicUrl(key: string | null | undefined): string | null {
     if (!key) return null;
-    const base = this.config.storage.driver === 's3' ? this.config.storage.s3.publicUrl : `${this.config.apiPublicUrl}/uploads`;
-    return `${base}/${key}-${IMAGE_WIDTHS[IMAGE_WIDTHS.length - 1]}.webp`;
+    if (this.cloud) return `https://res.cloudinary.com/${this.cloud.cloudName}/image/upload/${CLOUDINARY_ROOT}/${key}.webp`;
+    return `${this.config.apiPublicUrl}/uploads/${key}-${IMAGE_WIDTHS[IMAGE_WIDTHS.length - 1]}.webp`;
   }
 
   async removePublicImage(key: string) {
-    for (const w of IMAGE_WIDTHS) await this.removeFile(`${key}-${w}.webp`);
+    if (this.cloud) {
+      try {
+        await cloudinary.uploader.destroy(`${CLOUDINARY_ROOT}/${key}`, { resource_type: 'image', type: 'upload', invalidate: true });
+      } catch (err) {
+        this.logger.warn(`Suppression impossible de ${key} sur Cloudinary : ${(err as Error).message}`);
+      }
+      return;
+    }
+    for (const w of IMAGE_WIDTHS) await this.removeLocalFile(`${key}-${w}.webp`);
   }
 
-  async removeFile(file: string) {
+  private async removeLocalFile(file: string) {
     try {
-      if (this.s3) await this.s3.send(new DeleteObjectCommand({ Bucket: this.config.storage.s3.bucket, Key: file }));
-      else await unlink(join(this.localRoot, file));
+      await unlink(join(this.localRoot, file));
     } catch (err) {
       this.logger.warn(`Suppression impossible de ${file} : ${(err as Error).message}`);
     }
+  }
+
+  /** URL signée et temporaire d'un fichier privé sur Cloudinary (utilisée uniquement côté serveur). */
+  private privateCloudUrl(key: string) {
+    const pdf = key.endsWith('.pdf');
+    // Les fichiers « raw » (PDF) gardent leur extension dans l'identifiant ; les images non.
+    const publicId = `${CLOUDINARY_ROOT}/${pdf ? key : key.replace(/\.webp$/, '')}`;
+    return cloudinary.url(publicId, {
+      resource_type: pdf ? 'raw' : 'image',
+      type: 'authenticated',
+      sign_url: true,
+      secure: true,
+      ...(pdf ? {} : { format: 'webp' }),
+    });
+  }
+
+  private cloudUpload(data: Buffer, publicId: string, resourceType: 'image' | 'raw', type: 'upload' | 'authenticated') {
+    return new Promise<void>((done, fail) => {
+      cloudinary.uploader
+        .upload_stream({ public_id: publicId, resource_type: resourceType, type, overwrite: false, unique_filename: false }, (err) => (err ? fail(new Error(err.message)) : done()))
+        .end(data);
+    });
   }
 
   private assertSize(buffer: Buffer) {
@@ -146,16 +181,10 @@ export class StorageService {
   }
 
   private async put(file: string, data: Buffer, contentType: string) {
-    if (this.s3) {
-      await this.s3.send(
-        new PutObjectCommand({
-          Bucket: this.config.storage.s3.bucket,
-          Key: file,
-          Body: data,
-          ContentType: contentType,
-          CacheControl: file.startsWith('private/') ? 'private, no-store' : 'public, max-age=31536000, immutable',
-        }),
-      );
+    if (this.cloud) {
+      const pdf = contentType === 'application/pdf';
+      const isPrivate = file.startsWith('private/');
+      await this.cloudUpload(data, `${CLOUDINARY_ROOT}/${pdf ? file : file.replace(/\.webp$/, '')}`, pdf ? 'raw' : 'image', isPrivate ? 'authenticated' : 'upload');
       return;
     }
     const target = join(this.localRoot, file);
