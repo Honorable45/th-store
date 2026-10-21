@@ -1,2 +1,31 @@
-/** Adresse du site public (liens « voir sur le site », QR codes). */
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+'use client';
+
+import { useEffect, useState } from 'react';
+import { api } from './api';
+
+/** Valeur de repli tant que l'API n'a pas répondu (ou en développement). */
+const FALLBACK = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+let cached: Promise<string> | null = null;
+
+/**
+ * Adresse du site public (liens « Voir sur le site », QR codes).
+ * Source unique : WEB_ORIGIN de l'API, lue une seule fois — aucune variable à configurer côté administration.
+ */
+export function useSiteUrl() {
+  const [url, setUrl] = useState(FALLBACK);
+  useEffect(() => {
+    cached ??= api
+      .get<{ siteUrl?: string }>('/settings/public')
+      .then((s) => (s.siteUrl ?? FALLBACK).replace(/\/$/, ''))
+      .catch(() => {
+        cached = null;
+        return FALLBACK;
+      });
+    let alive = true;
+    void cached.then((u) => alive && setUrl(u));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return url;
+}

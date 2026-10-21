@@ -1,5 +1,5 @@
 'use client';
-import { SITE_URL } from '@/lib/site-url';
+import { useSiteUrl } from '@/lib/site-url';
 
 import { ChevronDown, ExternalLink, LogOut, Menu, Plus, Search, UserRound, X } from 'lucide-react';
 import Link from 'next/link';
@@ -142,6 +142,7 @@ function QuickActions() {
 }
 
 export function AdminShell({ children }: { children: ReactNode }) {
+  const siteUrl = useSiteUrl();
   const pathname = usePathname();
   const [drawer, setDrawer] = useState(false);
   const [palette, setPalette] = useState(false);
@@ -195,14 +196,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={() => setPalette(true)}
-            className="flex h-9 flex-1 items-center gap-2.5 rounded-sm border border-line bg-surface px-3 text-left text-[13.5px] text-faint transition-colors hover:border-line-2 sm:max-w-md"
+            className="flex h-9 min-w-0 flex-1 items-center gap-2.5 rounded-sm border border-line bg-surface px-3 text-left text-[13.5px] text-faint transition-colors hover:border-line-2 sm:max-w-md"
           >
             <Search className="size-4" />
-            <span className="flex-1 truncate">Rechercher un dossier, un client, un article…</span>
+            <span className="flex-1 truncate">
+              <span className="sm:hidden">Rechercher…</span>
+              <span className="hidden sm:inline">Rechercher un dossier, un client, un article…</span>
+            </span>
             <kbd className="hidden rounded-xs border border-line px-1.5 font-mono text-[11px] text-muted sm:inline">Ctrl K</kbd>
           </button>
           <div className="ml-auto flex items-center gap-2">
-            <a href={SITE_URL} target="_blank" rel="noopener noreferrer" className="hidden h-9 items-center gap-1.5 rounded-sm px-2.5 text-[13.5px] text-ink-2 hover:bg-paper-2 md:inline-flex">
+            <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="hidden h-9 items-center gap-1.5 rounded-sm px-2.5 text-[13.5px] text-ink-2 hover:bg-paper-2 md:inline-flex">
               Voir le site <ExternalLink className="size-3.5" />
             </a>
             <QuickActions />

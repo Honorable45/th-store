@@ -1,5 +1,5 @@
 'use client';
-import { SITE_URL } from '@/lib/site-url';
+import { useSiteUrl } from '@/lib/site-url';
 
 import { Eye } from 'lucide-react';
 import Link from 'next/link';
@@ -52,6 +52,7 @@ const MANUAL: Record<string, { to: string; label: string }[]> = {
 };
 
 export default function PhonePage({ params }: { params: Promise<{ id: string }> }) {
+  const siteUrl = useSiteUrl();
   const { id } = use(params);
   const can = useCan();
   const { notify } = useToast();
@@ -95,7 +96,7 @@ export default function PhonePage({ params }: { params: Promise<{ id: string }> 
             <Tag tone={p.condition === 'NEW' ? 'ok' : p.condition === 'IMPORTED' ? 'warn' : 'info'}>{CONDITIONS[p.condition]}</Tag>
             {p.isDemo && <Tag tone="warn">Démo</Tag>}
             {(p.status === 'AVAILABLE' || p.status === 'RESERVED') && (
-              <Link href={`${SITE_URL}/telephones/${p.slug}`} target="_blank" className="text-accent underline">
+              <Link href={`${siteUrl}/telephones/${p.slug}`} target="_blank" className="text-accent underline">
                 Voir sur le site
               </Link>
             )}

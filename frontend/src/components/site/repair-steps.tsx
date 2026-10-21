@@ -1,9 +1,10 @@
 'use client';
 
-import { ArrowRight, Check, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ArrowRight, Check, ScanSearch } from 'lucide-react';
+import { useState } from 'react';
 import type { RepairCatalog, RepairEstimate, ShopBrand } from '@/lib/types';
 import { cn } from '@/lib/cn';
+import { detectDevice } from '@/lib/detect-device';
 import { formatDuration, formatPrice } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/field';
@@ -27,86 +28,138 @@ export function StepTitle({ n, title, hint }: { n: number; title: string; hint?:
   );
 }
 
-export function BrandStep({ brands, onPick, onOther }: { brands: Brand[]; onPick: (b: Brand) => void; onOther: () => void }) {
-  return (
-    <div>
-      <StepTitle n={1} title="Votre marque" />
-      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {brands.map((b) => (
-          <li key={b.id}>
-            <button type="button" className={cn(choice, 'border-line-2 font-medium')} onClick={() => onPick(b)}>
-              {b.name}
-              <ArrowRight className="size-4 text-faint" />
-            </button>
-          </li>
-        ))}
-        <li>
-          <button type="button" className={cn(choice, 'border-dashed border-line-2 text-ink-2')} onClick={onOther}>
-            Autre marque
-            <ArrowRight className="size-4 text-faint" />
-          </button>
-        </li>
-      </ul>
-    </div>
-  );
+/** Téléphone saisi par le client ; `model` vaut null quand il ne le connaît pas. */
+export interface DeviceInput {
+  brand: string;
+  model: string | null;
+  /** Référence fournie par le navigateur (« SM-A546B »…), transmise telle quelle à la boutique. */
+  reference: string | null;
 }
 
-export function ModelStep({ brand, onPick, onOther }: { brand: Brand; onPick: (m: Model) => void; onOther: () => void }) {
-  const [q, setQ] = useState('');
-  const models = useMemo(() => brand.models.filter((m) => m.name.toLowerCase().includes(q.trim().toLowerCase())), [brand, q]);
-  return (
-    <div>
-      <StepTitle n={2} title={`Votre modèle ${brand.name}`} />
-      {brand.models.length > 8 && (
-        <div className="relative mb-3">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un modèle" aria-label="Rechercher un modèle" className="pl-9" />
-        </div>
-      )}
-      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {models.map((m) => (
-          <li key={m.id}>
-            <button type="button" className={cn(choice, 'border-line-2')} onClick={() => onPick(m)}>
-              {m.name}
-              <ArrowRight className="size-4 text-faint" />
-            </button>
-          </li>
-        ))}
-      </ul>
-      {models.length === 0 && <p className="py-4 text-[14px] text-muted">Aucun modèle ne correspond à « {q} ».</p>}
-      <button type="button" onClick={onOther} className="mt-4 text-[14px] font-medium text-accent underline">
-        Mon modèle n’est pas dans la liste
-      </button>
-    </div>
-  );
-}
+export function DeviceStep({ brands, initial, onSubmit }: { brands: Brand[]; initial: DeviceInput; onSubmit: (d: DeviceInput) => void }) {
+  const [brand, setBrand] = useState(initial.brand);
+  const [model, setModel] = useState(initial.model ?? '');
+  const [reference, setReference] = useState(initial.reference);
+  const [help, setHelp] = useState(false);
+  const [detecting, setDetecting] = useState(false);
+  const [detectNote, setDetectNote] = useState<string | null>(null);
+  const known = brands.find((b) => sameName(b.name, brand));
 
-export function FreeDeviceStep({ askBrand, initialBrand, onSubmit }: { askBrand: boolean; initialBrand: string; onSubmit: (brand: string, model: string) => void }) {
-  const [brand, setBrand] = useState(initialBrand);
-  const [model, setModel] = useState('');
+  const detect = async () => {
+    setDetecting(true);
+    setDetectNote(null);
+    const d = await detectDevice();
+    setDetecting(false);
+    if (!d) return setDetectNote('Détection impossible sur cet appareil : ouvrez cette page sur le téléphone à réparer, ou saisissez le modèle.');
+    if (d.brand) setBrand(d.brand);
+    if (d.iphone) {
+      setHelp(true);
+      return setDetectNote('iPhone détecté. Le modèle exact se lit dans Réglages › Général › Informations › Nom du modèle.');
+    }
+    if (d.model) {
+      setModel(d.model);
+      setReference(d.model);
+      setDetectNote(`Référence détectée : ${d.model}. Corrigez-la si vous connaissez le nom commercial.`);
+    }
+  };
+
+  const submit = (withModel: boolean) => {
+    if (!brand.trim()) return;
+    onSubmit({ brand: brand.trim(), model: withModel ? model.trim() : null, reference: withModel && reference === model.trim() ? reference : null });
+  };
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (brand.trim() && model.trim()) onSubmit(brand.trim(), model.trim());
+        if (model.trim()) submit(true);
       }}
     >
-      <StepTitle n={2} title="Votre téléphone" />
+      <StepTitle n={1} title="Votre téléphone" />
+      <button type="button" onClick={detect} disabled={detecting} className="glass-dark mb-5 flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl px-5 py-3 text-left text-[15px] text-white transition-transform hover:-translate-y-0.5 disabled:opacity-70">
+        <span className="flex items-center gap-3">
+          <ScanSearch className="size-5 shrink-0" strokeWidth={1.8} />
+          <span>
+            <span className="block font-medium">{detecting ? 'Détection…' : 'Détecter ce téléphone'}</span>
+            <span className="block text-[13px] text-white/75">Si vous êtes sur le téléphone à réparer</span>
+          </span>
+        </span>
+        <ArrowRight className="size-4 text-white/70" />
+      </button>
+      {detectNote && <p className="-mt-2 mb-5 text-[13.5px] text-ink-2" role="status">{detectNote}</p>}
+
+      <ul className="mb-3 flex flex-wrap gap-2" aria-label="Marques courantes">
+        {brands.map((b) => (
+          <li key={b.id}>
+            <button type="button" onClick={() => setBrand(b.name)} aria-pressed={sameName(b.name, brand)} className={cn('h-9 rounded-full border px-4 text-[14px] transition-colors', sameName(b.name, brand) ? 'border-navy bg-navy text-white' : 'border-line-2 bg-surface hover:border-navy')}>
+              {b.name}
+            </button>
+          </li>
+        ))}
+      </ul>
       <div className="grid gap-4 sm:grid-cols-2">
-        {askBrand && <Field label="Marque">{(p) => <Input {...p} value={brand} onChange={(e) => setBrand(e.target.value)} required maxLength={60} placeholder="Ex. Huawei" />}</Field>}
-        <Field label="Modèle">{(p) => <Input {...p} value={model} onChange={(e) => setModel(e.target.value)} required maxLength={80} placeholder="Ex. P30 Lite" />}</Field>
+        <Field label="Marque">{(p) => <Input {...p} value={brand} onChange={(e) => setBrand(e.target.value)} required maxLength={60} placeholder="Ex. Samsung" autoComplete="off" />}</Field>
+        <Field label="Modèle">
+          {(p) => (
+            <>
+              <Input {...p} value={model} onChange={(e) => setModel(e.target.value)} maxLength={80} placeholder={known?.models[0] ? `Ex. ${known.models[0].name}` : 'Ex. Galaxy A54'} list="modeles-connus" autoComplete="off" />
+              <datalist id="modeles-connus">
+                {known?.models.map((m) => <option key={m.id} value={m.name} />)}
+              </datalist>
+            </>
+          )}
+        </Field>
       </div>
-      <Button type="submit" className="mt-5" disabled={!brand.trim() || !model.trim()}>
-        Continuer
-      </Button>
+      <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3">
+        <Button type="submit" disabled={!brand.trim() || !model.trim()}>
+          Continuer
+        </Button>
+        <button type="button" onClick={() => setHelp((v) => !v)} aria-expanded={help} className="text-[14px] font-medium text-accent underline">
+          Je ne connais pas le modèle
+        </button>
+      </div>
+
+      {help && (
+        <div className="glass-light mt-5 rounded-2xl p-5 text-[14px] text-ink-2">
+          <p className="font-medium text-ink">Où trouver le modèle ?</p>
+          <ul className="mt-2 space-y-1.5">
+            <li>• iPhone : Réglages › Général › Informations › Nom du modèle</li>
+            <li>• Android : Paramètres › À propos du téléphone</li>
+            <li>• Sur la boîte, ou sur l’étiquette sous la batterie</li>
+          </ul>
+          <button type="button" onClick={() => submit(false)} disabled={!brand.trim()} className="mt-4 inline-flex items-center gap-1.5 font-medium text-accent underline disabled:opacity-50">
+            Continuer sans le modèle <ArrowRight className="size-4" />
+          </button>
+          {!brand.trim() && <p className="mt-1 text-[13px] text-muted">Indiquez au moins la marque.</p>}
+        </div>
+      )}
     </form>
   );
+}
+
+/** Comparaison tolérante : casse, accents, espaces et tirets ignorés. */
+export function normalizeName(s: string) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+function sameName(a: string, b: string) {
+  return normalizeName(a) === normalizeName(b) && normalizeName(a) !== '';
+}
+
+/** Modèle du catalogue correspondant à la saisie (« A54 » → « Galaxy A54 »), s'il est unique. */
+export function matchModel(brand: Brand | undefined, typed: string | null): Model | null {
+  if (!brand || !typed) return null;
+  const t = normalizeName(typed);
+  const exact = brand.models.find((m) => normalizeName(m.name) === t);
+  if (exact) return exact;
+  if (t.length < 3) return null;
+  const ends = brand.models.filter((m) => normalizeName(m.name).endsWith(t));
+  return ends.length === 1 ? ends[0] : null;
 }
 
 export function IssueStep({ types, prices, loadingPrices, onPick }: { types: RepairType[]; prices: ModelPrice[] | null; loadingPrices: boolean; onPick: (t: RepairType) => void }) {
   return (
     <div>
-      <StepTitle n={3} title="La panne" />
+      <StepTitle n={2} title="La panne" />
       <ul className="divide-y divide-line border-y border-line">
         {types.map((t) => {
           const price = prices?.find((p) => p.repairTypeId === t.id);
@@ -137,7 +190,7 @@ export function IssueStep({ types, prices, loadingPrices, onPick }: { types: Rep
 export function EstimateStep({ estimate, deviceLabel, issueLabel, whatsappHref }: { estimate: RepairEstimate | null; deviceLabel: string; issueLabel: string; whatsappHref: string }) {
   return (
     <div>
-      <StepTitle n={4} title={`${deviceLabel} — ${issueLabel}`} />
+      <StepTitle n={3} title={`${deviceLabel} — ${issueLabel}`} />
       {estimate ? (
         <div className="glass-light rounded-3xl p-6">
           <p className="text-[13px] text-muted">Prix estimé</p>

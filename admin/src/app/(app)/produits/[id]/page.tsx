@@ -1,5 +1,5 @@
 'use client';
-import { SITE_URL } from '@/lib/site-url';
+import { useSiteUrl } from '@/lib/site-url';
 
 import Link from 'next/link';
 import { use, useState } from 'react';
@@ -32,6 +32,7 @@ interface Movement {
 }
 
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const siteUrl = useSiteUrl();
   const { id } = use(params);
   const can = useCan();
   const { notify } = useToast();
@@ -69,7 +70,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
             {p.status === 'ARCHIVED' && <Tag tone="bad">Archivé</Tag>}
             {p.isDemo && <Tag tone="warn">Démo</Tag>}
             {p.kind === 'ACCESSORY' && p.status === 'ACTIVE' && p.published && (
-              <Link href={`${SITE_URL}/boutique/${p.slug}`} target="_blank" className="text-accent underline">
+              <Link href={`${siteUrl}/accessoires/${p.slug}`} target="_blank" className="text-accent underline">
                 Voir sur le site
               </Link>
             )}

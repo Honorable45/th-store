@@ -32,7 +32,6 @@ export default function SettingsPage() {
         items={[
           { value: 'shop', label: 'Boutique' },
           { value: 'hours', label: 'Horaires' },
-          { value: 'sales', label: 'Vente en ligne' },
           { value: 'images', label: 'Photos du site' },
           { value: 'legal', label: 'Mentions légales' },
           { value: 'categories', label: 'Catégories' },

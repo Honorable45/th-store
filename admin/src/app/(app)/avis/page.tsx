@@ -1,5 +1,5 @@
 'use client';
-import { SITE_URL } from '@/lib/site-url';
+import { useSiteUrl } from '@/lib/site-url';
 
 import { BadgeCheck, Download, MessageSquareText, Printer } from 'lucide-react';
 import Link from 'next/link';
@@ -41,7 +41,8 @@ interface ReviewRow {
 const params = (tab: string) => (tab === 'all' ? {} : tab === 'verified' ? { verified: 'true' } : { status: tab });
 
 function QrPanel() {
-  const url = `${SITE_URL}/avis/laisser`;
+  const siteUrl = useSiteUrl();
+  const url = `${siteUrl}/avis/laisser`;
   const [printing, setPrinting] = useState(false);
   return (
     <Panel title="QR code de la boutique">

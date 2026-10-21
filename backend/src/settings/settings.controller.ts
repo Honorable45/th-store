@@ -115,6 +115,8 @@ export class SettingsController {
     const onlineMobileMoney = s.mobileMoneyEnabled && Boolean(this.config.paygateApiKey);
     return {
       shopName: s.shopName,
+      // Adresse du site public (WEB_ORIGIN) : l'administration s'en sert pour les QR codes et les liens « Voir sur le site ».
+      siteUrl: this.config.webOrigin,
       tagline: s.tagline,
       logoUrl: s.logoUrl,
       heroImageUrl: s.heroImageUrl,

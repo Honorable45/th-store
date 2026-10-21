@@ -73,20 +73,30 @@ export function PhoneForm({ phone, brands, suppliers }: { phone?: PhoneData; bra
 
   const save = async (confirmDuplicate = false) => {
     setError(null);
-    if (!device.brandId || !device.modelName.trim()) return setError('Choisissez la marque et le modèle.');
+    if (!device.brandName.trim() || !device.modelName.trim()) return setError('Indiquez la marque et le modèle.');
     if (!sold && (f.purchasePrice === '' || f.salePrice === '')) return setError('Indiquez le prix d’achat et le prix de vente.');
     setSaving(true);
+    let brandId = device.brandId;
+    if (!brandId) {
+      // Marque absente de la liste : ajoutée au référentiel (elle servira aussi aux devis).
+      try {
+        brandId = (await api.post<{ id: string }>('/brands', { name: device.brandName.trim() })).id;
+      } catch (err) {
+        setSaving(false);
+        return setError(`Marque « ${device.brandName.trim()} » inconnue : ${errorMessage(err)}`);
+      }
+    }
     const body: Record<string, unknown> = {
-      brandId: device.brandId,
+      brandId,
       phoneModelId: device.modelId || null,
       modelName: device.modelName.trim(),
       condition: f.condition,
       storageGb: num(f.storageGb),
       ramGb: num(f.ramGb),
       color: f.color.trim() || null,
-      grade: f.grade,
-      batteryHealth: num(f.batteryHealth),
-      knownDefects: f.knownDefects.trim() || null,
+      grade: f.condition === 'NEW' ? 'LIKE_NEW' : f.grade,
+      batteryHealth: f.condition === 'NEW' ? null : num(f.batteryHealth),
+      knownDefects: f.condition === 'NEW' ? null : f.knownDefects.trim() || null,
       includedAccessories: f.includedAccessories.trim() || null,
       description: f.description.trim() || null,
       warrantyMonths: Number(f.warrantyMonths) || 0,
@@ -117,6 +127,9 @@ export function PhoneForm({ phone, brands, suppliers }: { phone?: PhoneData; bra
     setSaving(false);
   };
 
+  // Le bloc facultatif s'ouvre d'office quand il contient déjà des informations.
+  const hasExtras = Boolean(phone && (phone.hasImei || phone.ramGb || phone.includedAccessories || phone.description || phone.supplier || phone.acquiredFrom));
+
   return (
     <form
       onSubmit={(e: FormEvent) => {
@@ -125,70 +138,67 @@ export function PhoneForm({ phone, brands, suppliers }: { phone?: PhoneData; bra
       }}
       className="space-y-6"
     >
-      <Panel title="Appareil">
+      <Panel title="Téléphone">
         <div className="space-y-4">
-          <fieldset>
-            <legend className="mb-2 text-[13px] font-medium text-ink-2">Catégorie</legend>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {(['NEW', 'IMPORTED', 'USED'] as const).map((c) => (
-                <label key={c} className={`flex cursor-pointer items-start gap-2.5 rounded-sm border px-3 py-2.5 text-[14px] ${f.condition === c ? 'border-accent ring-1 ring-accent' : 'border-line-2'}`}>
-                  <input type="radio" name="condition" className="mt-1 accent-accent" checked={f.condition === c} onChange={() => setF({ ...f, condition: c })} />
-                  <span>
-                    <span className="block font-medium">{CONDITIONS[c]}</span>
-                    <span className="block text-[12.5px] text-muted">{{ NEW: 'Jamais utilisé, emballage d’origine', IMPORTED: 'Utilisé en Europe ou aux USA', USED: 'Utilisé localement' }[c]}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <DeviceFields brands={brands} value={device} onChange={setDevice} requireKnownBrand />
+          <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Catégorie">
+            {(['NEW', 'IMPORTED', 'USED'] as const).map((c) => (
+              <label key={c} className={`flex cursor-pointer items-center justify-center gap-2 rounded-sm border px-3 py-2.5 text-[14px] font-medium ${f.condition === c ? 'border-accent bg-accent/5 ring-1 ring-accent' : 'border-line-2'}`}>
+                <input type="radio" name="condition" className="accent-accent" checked={f.condition === c} onChange={() => setF({ ...f, condition: c })} />
+                {CONDITIONS[c]}
+              </label>
+            ))}
+          </div>
+          <DeviceFields brands={brands} value={device} onChange={setDevice} />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Field label="Stockage (Go)">{(p) => <Input {...p} type="number" min={1} value={f.storageGb} onChange={set('storageGb')} className="num" />}</Field>
-            <Field label="RAM (Go)" optional>{(p) => <Input {...p} type="number" min={1} value={f.ramGb} onChange={set('ramGb')} className="num" />}</Field>
             <Field label="Couleur">{(p) => <Input {...p} value={f.color} onChange={set('color')} maxLength={40} />}</Field>
+            {f.condition !== 'NEW' && (
+              <Field label="État">
+                {(p) => (
+                  <Select {...p} value={f.grade} onChange={set('grade')}>
+                    {Object.entries(GRADES).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+            )}
             {f.condition !== 'NEW' && <Field label="Batterie (%)" optional>{(p) => <Input {...p} type="number" min={0} max={100} value={f.batteryHealth} onChange={set('batteryHealth')} className="num" />}</Field>}
           </div>
-          <Field label={phone?.hasImei ? 'Remplacer l’IMEI' : 'IMEI'} optional hint="Chiffré, jamais affiché sur le site. Un même IMEI ne peut pas être enregistré deux fois.">
-            {(p) => <Input {...p} value={f.imei} onChange={set('imei')} inputMode="numeric" maxLength={30} className="font-mono" autoComplete="off" />}
-          </Field>
+          {f.condition !== 'NEW' && (
+            <Field label="Défauts connus" optional hint="Affichés sur la fiche publique : soyez précis et honnête.">
+              {(p) => <Input {...p} value={f.knownDefects} onChange={set('knownDefects')} maxLength={1000} placeholder="Rayure légère au dos, Face ID inactif…" />}
+            </Field>
+          )}
         </div>
       </Panel>
 
-      <Panel title="État">
-        <div className="grid gap-4 sm:grid-cols-2">
-          {f.condition !== 'NEW' && <Field label="État général">
-            {(p) => (
-              <Select {...p} value={f.grade} onChange={set('grade')}>
-                {Object.entries(GRADES).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>}
+      <Panel title="Prix">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="Prix d’achat" hint={sold ? 'Figé : téléphone vendu.' : undefined}>
+            {(p) => <MoneyInput {...p} value={f.purchasePrice} onChange={set('purchasePrice')} disabled={sold} />}
+          </Field>
+          <Field label="Prix de vente" hint={margin !== null ? `Marge : ${formatPrice(margin)}` : undefined}>
+            {(p) => <MoneyInput {...p} value={f.salePrice} onChange={set('salePrice')} disabled={sold} />}
+          </Field>
           <Field label="Garantie (mois)">{(p) => <Input {...p} type="number" min={0} max={36} value={f.warrantyMonths} onChange={set('warrantyMonths')} className="num" />}</Field>
-          {f.condition !== 'NEW' && (
-            <Field label="Défauts connus" optional className="sm:col-span-2" hint="Affichés sur la fiche publique : soyez précis et honnête.">
-              {(p) => <Textarea {...p} rows={2} value={f.knownDefects} onChange={set('knownDefects')} maxLength={1000} placeholder="Rayure légère au dos, Face ID inactif…" />}
-            </Field>
-          )}
+        </div>
+      </Panel>
+
+      <details open={hasExtras} className="group rounded-md border border-line bg-surface">
+        <summary className="cursor-pointer select-none px-5 py-3.5 text-[14px] font-medium text-ink-2 hover:text-ink">Plus de détails <span className="font-normal text-muted">— IMEI, accessoires, fournisseur… (facultatif)</span></summary>
+        <div className="grid gap-4 border-t border-line px-5 py-5 sm:grid-cols-2">
+          <Field label={phone?.hasImei ? 'Remplacer l’IMEI' : 'IMEI'} optional hint="Chiffré, jamais affiché sur le site.">
+            {(p) => <Input {...p} value={f.imei} onChange={set('imei')} inputMode="numeric" maxLength={30} className="font-mono" autoComplete="off" />}
+          </Field>
+          <Field label="RAM (Go)" optional>{(p) => <Input {...p} type="number" min={1} value={f.ramGb} onChange={set('ramGb')} className="num" />}</Field>
           <Field label="Accessoires inclus" optional className="sm:col-span-2">
             {(p) => <Input {...p} value={f.includedAccessories} onChange={set('includedAccessories')} maxLength={500} placeholder="Câble, boîte d’origine…" />}
           </Field>
           <Field label="Description" optional className="sm:col-span-2">
-            {(p) => <Textarea {...p} rows={3} value={f.description} onChange={set('description')} maxLength={3000} />}
-          </Field>
-        </div>
-      </Panel>
-
-      <Panel title="Achat et prix">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Prix d’achat" hint={sold ? 'Figé : téléphone vendu.' : undefined}>
-            {(p) => <MoneyInput {...p} value={f.purchasePrice} onChange={set('purchasePrice')} disabled={sold} />}
-          </Field>
-          <Field label="Prix de vente" hint={margin !== null ? `Marge brute estimée : ${formatPrice(margin)}` : undefined}>
-            {(p) => <MoneyInput {...p} value={f.salePrice} onChange={set('salePrice')} disabled={sold} />}
+            {(p) => <Textarea {...p} rows={2} value={f.description} onChange={set('description')} maxLength={3000} />}
           </Field>
           <Field label="Date d’acquisition">{(p) => <Input {...p} type="date" value={f.acquiredAt} onChange={set('acquiredAt')} max={todayLocal()} />}</Field>
           <Field label="Fournisseur" optional>
@@ -207,7 +217,7 @@ export function PhoneForm({ phone, brands, suppliers }: { phone?: PhoneData; bra
             {(p) => <Input {...p} value={f.acquiredFrom} onChange={set('acquiredFrom')} maxLength={160} placeholder="Rachat particulier, reprise client…" />}
           </Field>
         </div>
-      </Panel>
+      </details>
 
       <FormError message={error} />
       <Button type="submit" loading={saving}>

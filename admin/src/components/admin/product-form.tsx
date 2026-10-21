@@ -82,9 +82,6 @@ export function ProductForm({ product, kind, categories, brands, suppliers }: { 
           <Field label="Désignation" className="sm:col-span-2">
             {(p) => <Input {...p} value={name} onChange={(e) => setName(e.target.value)} required minLength={2} maxLength={140} />}
           </Field>
-          <Field label="Référence" optional hint={product ? undefined : 'Générée automatiquement si vide.'}>
-            {(p) => <Input {...p} value={sku} onChange={(e) => setSku(e.target.value.toUpperCase())} maxLength={40} className="font-mono uppercase" />}
-          </Field>
           <Field label="Catégorie">
             {(p) => (
               <Select {...p} value={categoryId} onChange={(e) => setCategoryId(e.target.value)} required>
@@ -99,6 +96,32 @@ export function ProductForm({ product, kind, categories, brands, suppliers }: { 
           </Field>
           <Field label={kind === 'PART' ? 'Prix de vente au détail' : 'Prix de vente'} hint={kind === 'PART' ? 'Mettez 0 si la pièce n’est pas vendue seule.' : undefined}>
             {(p) => <MoneyInput {...p} value={price} onChange={(e) => setPrice(e.target.value)} required />}
+          </Field>
+          <Field label="Description" optional className="sm:col-span-2">
+            {(p) => <Textarea {...p} rows={2} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={4000} placeholder="Caractéristiques utiles au client : puissance, longueur, matière…" />}
+          </Field>
+          {kind === 'ACCESSORY' && <Checkbox className="sm:col-span-2" checked={published} onChange={(e) => setPublished(e.target.checked)} label="Visible sur le site" description="Décochez pour un article vendu uniquement au comptoir." />}
+        </div>
+      </Panel>
+
+
+
+      {!product && (
+        <Panel title="Stock">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Quantité en stock">{(p) => <Input {...p} type="number" min={0} value={initialStock} onChange={(e) => setInitialStock(e.target.value)} className="num" />}</Field>
+            <Field label="Coût d’achat unitaire" hint="Prix payé pour une pièce : sert au calcul des marges.">
+              {(p) => <MoneyInput {...p} value={initialCost} onChange={(e) => setInitialCost(e.target.value)} />}
+            </Field>
+          </div>
+        </Panel>
+      )}
+
+      <details open={Boolean(product && (product.sku || compat.length > 0 || supplierId))} className="rounded-md border border-line bg-surface">
+        <summary className="cursor-pointer select-none px-5 py-3.5 text-[14px] font-medium text-ink-2 hover:text-ink">Plus d’options <span className="font-normal text-muted">— référence, alerte de stock, fournisseur, compatibilité (facultatif)</span></summary>
+        <div className="grid gap-4 border-t border-line px-5 py-5 sm:grid-cols-2">
+          <Field label="Référence" optional hint={product ? undefined : 'Générée automatiquement si vide.'}>
+            {(p) => <Input {...p} value={sku} onChange={(e) => setSku(e.target.value.toUpperCase())} maxLength={40} className="font-mono uppercase" />}
           </Field>
           <Field label="Seuil d’alerte" hint="Alerte « stock faible » à partir de ce nombre disponible.">
             {(p) => <Input {...p} type="number" min={0} value={threshold} onChange={(e) => setThreshold(e.target.value)} className="num" />}
@@ -117,21 +140,13 @@ export function ProductForm({ product, kind, categories, brands, suppliers }: { 
               )}
             </Field>
           )}
-          <Field label="Description" optional className="sm:col-span-2">
-            {(p) => <Textarea {...p} rows={4} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={4000} placeholder="Caractéristiques utiles au client : puissance, longueur, matière…" />}
-          </Field>
-          {kind === 'ACCESSORY' && <Checkbox className="sm:col-span-2" checked={published} onChange={(e) => setPublished(e.target.checked)} label="Visible sur le site" description="Décochez pour un article vendu uniquement au comptoir." />}
-        </div>
-      </Panel>
-
-      <Panel
-        title="Compatibilité"
-        actions={
-          <Button size="sm" variant="ghost" onClick={() => setCompat([...compat, { brandId: '', modelId: '' }])}>
-            <Plus className="size-4" /> Ajouter
-          </Button>
-        }
-      >
+          <div className="sm:col-span-2">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[13px] font-medium text-ink-2">Compatibilité</span>
+              <Button size="sm" variant="ghost" onClick={() => setCompat([...compat, { brandId: '', modelId: '' }])}>
+                <Plus className="size-4" /> Ajouter
+              </Button>
+            </div>
         {compat.length === 0 ? (
           <p className="text-[13.5px] text-muted">Article universel. Ajoutez des marques ou modèles pour permettre le filtrage par téléphone.</p>
         ) : (
@@ -164,19 +179,9 @@ export function ProductForm({ product, kind, categories, brands, suppliers }: { 
             })}
           </ul>
         )}
-      </Panel>
-
-      {!product && (
-        <Panel title="Stock initial" actions={<span className="text-[12px] text-muted">facultatif</span>}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Quantité en stock">{(p) => <Input {...p} type="number" min={0} value={initialStock} onChange={(e) => setInitialStock(e.target.value)} className="num" />}</Field>
-            <Field label="Coût d’achat unitaire" hint="Sert au calcul du coût moyen et des marges.">
-              {(p) => <MoneyInput {...p} value={initialCost} onChange={(e) => setInitialCost(e.target.value)} />}
-            </Field>
           </div>
-          <p className="mt-3 text-[12.5px] text-muted">Pour les achats suivants, utilisez « Approvisionnements » : les frais annexes y sont répartis et le coût moyen recalculé.</p>
-        </Panel>
-      )}
+        </div>
+      </details>
 
       <FormError message={error} />
       <div className="flex gap-2">

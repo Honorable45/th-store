@@ -1,7 +1,7 @@
 'use client';
 
 import type { BrandWithModels } from '@/lib/admin-types';
-import { Field, Input, Select } from '@/components/ui/field';
+import { Field, Input } from '@/components/ui/field';
 
 export interface DeviceValue {
   brandId: string;
@@ -16,68 +16,71 @@ export interface DeviceValue {
 
 export const emptyDevice: DeviceValue = { brandId: '', brandName: '', modelId: '', modelName: '', customBrand: false, customModel: false };
 
-export function DeviceFields({ brands, value, onChange, requireKnownBrand }: { brands: BrandWithModels[]; value: DeviceValue; onChange: (v: DeviceValue) => void; requireKnownBrand?: boolean }) {
+/** Comparaison tolérante : casse, accents, espaces et tirets ignorés. */
+const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/**
+ * Marque et modèle saisis librement, avec suggestions tirées du référentiel.
+ * Une saisie qui correspond à un modèle connu y est rattachée (tarifs automatiques) ; sinon elle est conservée telle quelle.
+ */
+export function DeviceFields({ brands, value, onChange }: { brands: BrandWithModels[]; value: DeviceValue; onChange: (v: DeviceValue) => void }) {
+  const activeBrands = brands.filter((b) => b.active);
   const brand = brands.find((b) => b.id === value.brandId);
   const models = brand?.models.filter((m) => m.active) ?? [];
 
+  const setModel = (name: string, b = brand) => {
+    const m = b?.models.find((x) => x.active && norm(x.name) === norm(name) && norm(name) !== '');
+    return { modelId: m?.id ?? '', modelName: m?.name ?? name, customModel: !m };
+  };
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="Marque">
+      <Field label="Marque" hint={value.customBrand && value.brandName.trim() ? 'Nouvelle marque : elle sera ajoutée à la liste.' : undefined}>
         {(p) => (
-          <Select
-            {...p}
-            required
-            value={value.customBrand ? '__other' : value.brandId}
-            onChange={(e) => {
-              const b = brands.find((x) => x.id === e.target.value);
-              if (b) onChange({ ...emptyDevice, brandId: b.id, brandName: b.name, customModel: b.models.length === 0 });
-              else onChange({ ...emptyDevice, customBrand: e.target.value === '__other', customModel: e.target.value === '__other' });
-            }}
-          >
-            <option value="">Choisir…</option>
-            {brands
-              .filter((b) => b.active)
-              .map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
+          <>
+            <Input
+              {...p}
+              required
+              list="marques-connues"
+              autoComplete="off"
+              maxLength={60}
+              placeholder="Ex. Samsung"
+              value={value.brandName}
+              onChange={(e) => {
+                const name = e.target.value;
+                const b = brands.find((x) => norm(x.name) === norm(name) && norm(name) !== '');
+                onChange({ ...value, brandId: b?.id ?? '', brandName: b ? b.name : name, customBrand: !b, ...setModel(value.modelName, b) });
+              }}
+            />
+            <datalist id="marques-connues">
+              {activeBrands.map((b) => (
+                <option key={b.id} value={b.name} />
               ))}
-            {!requireKnownBrand && <option value="__other">Autre marque</option>}
-          </Select>
+            </datalist>
+          </>
         )}
       </Field>
-
-      {value.customBrand ? (
-        <Field label="Nom de la marque">{(p) => <Input {...p} value={value.brandName} onChange={(e) => onChange({ ...value, brandName: e.target.value })} required maxLength={60} />}</Field>
-      ) : (
-        <Field label="Modèle">
-          {(p) => (
-            <Select
+      <Field label="Modèle" hint={value.customModel && value.modelName.trim() ? 'Hors liste : tarif sur diagnostic.' : undefined}>
+        {(p) => (
+          <>
+            <Input
               {...p}
-              disabled={!brand}
-              value={value.customModel && brand ? '__other' : value.modelId}
-              onChange={(e) => {
-                const m = models.find((x) => x.id === e.target.value);
-                onChange({ ...value, modelId: m?.id ?? '', modelName: m?.name ?? '', customModel: e.target.value === '__other' });
-              }}
-            >
-              <option value="">{brand ? 'Choisir…' : 'Choisissez d’abord la marque'}</option>
+              required
+              list="modeles-connus"
+              autoComplete="off"
+              maxLength={80}
+              placeholder={models[0] ? `Ex. ${models[0].name}` : 'Ex. Galaxy A15 5G'}
+              value={value.modelName}
+              onChange={(e) => onChange({ ...value, ...setModel(e.target.value) })}
+            />
+            <datalist id="modeles-connus">
               {models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
+                <option key={m.id} value={m.name} />
               ))}
-              <option value="__other">Autre modèle</option>
-            </Select>
-          )}
-        </Field>
-      )}
-
-      {value.customModel && (value.customBrand || brand) && (
-        <Field label="Nom du modèle" className="sm:col-span-2" hint="Modèle hors référentiel : aucun tarif automatique.">
-          {(p) => <Input {...p} value={value.modelName} onChange={(e) => onChange({ ...value, modelName: e.target.value })} required maxLength={80} placeholder="Ex. Galaxy A15 5G" />}
-        </Field>
-      )}
+            </datalist>
+          </>
+        )}
+      </Field>
     </div>
   );
 }

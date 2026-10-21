@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, Boxes, Inbox, MessageSquareText, PackageCheck, ReceiptText, Timer, Wrench, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Boxes, MessageSquareText, PackageCheck, Timer, Wrench, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Metric, PageHeader, Panel } from '@/components/admin/ui';
 import { useSession } from '@/components/admin/session';
@@ -32,12 +32,9 @@ interface Overview {
 }
 
 const QUEUE: { key: string; label: string; href: string; icon: LucideIcon }[] = [
-  { key: 'ordersPending', label: 'Commandes en ligne à confirmer', href: '/commandes?onglet=PENDING', icon: ReceiptText },
-  { key: 'requestsNew', label: 'Demandes de devis à traiter', href: '/demandes', icon: Inbox },
   { key: 'quotesPending', label: 'Devis en attente de réponse du client', href: '/reparations?onglet=QUOTE_PENDING', icon: Timer },
   { key: 'repairsLate', label: 'Réparations en retard', href: '/reparations?onglet=late', icon: Wrench },
   { key: 'repairsReady', label: 'Téléphones prêts à remettre', href: '/reparations?onglet=ready', icon: PackageCheck },
-  { key: 'ordersInProgress', label: 'Commandes en cours de traitement', href: '/commandes?onglet=open', icon: ReceiptText },
   { key: 'lowStock', label: 'Articles à réapprovisionner', href: '/stocks', icon: Boxes },
   { key: 'reviewsPending', label: 'Avis à modérer', href: '/avis', icon: MessageSquareText },
 ];
