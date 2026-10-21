@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { BackButton } from '@/components/site/back-button';
 import { RepairWizard } from '@/components/site/repair-wizard';
 import { serverGet } from '@/lib/server-api';
 import type { PublicSettings, RepairCatalog } from '@/lib/types';
@@ -15,7 +16,10 @@ export default async function RepairPage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="container-page pt-40 lg:pt-32">
-      <h1 className="display mx-auto mb-8 max-w-3xl text-[40px] sm:text-[52px]">Devis</h1>
+      <div className="mx-auto max-w-3xl">
+        <BackButton className="mb-6" />
+        <h1 className="display mb-8 text-[40px] sm:text-[52px]">Devis</h1>
+      </div>
       {catalog ? (
         <RepairWizard catalog={catalog} initialBrand={marque} whatsapp={settings?.whatsapp ?? null} />
       ) : (

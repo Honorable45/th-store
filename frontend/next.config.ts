@@ -2,6 +2,14 @@ import type { NextConfig } from 'next';
 
 // URL interne de l'API NestJS (jamais exposée au navigateur : les appels passent par /api).
 const API_URL = (process.env.API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
+// Le relais /api est figé au build : sans API_URL, Vercel enverrait tout vers localhost (erreur 404 DNS_HOSTNAME_RESOLVED_PRIVATE).
+if (process.env.VERCEL) {
+  console.log(`Relais /api → ${API_URL}`);
+  const host = URL.canParse(API_URL) ? new URL(API_URL).hostname : '';
+  if (!API_URL.startsWith('https://') || !host.includes('.') || host === 'localhost') {
+    throw new Error(`API_URL invalide sur Vercel (« ${process.env.API_URL ?? 'absente'} ») : utilisez l'adresse publique, ex. https://votre-api.onrender.com, puis redéployez.`);
+  }
+}
 
 const config: NextConfig = {
   poweredByHeader: false,

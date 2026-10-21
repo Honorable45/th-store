@@ -2,6 +2,7 @@ import { MapPin, Navigation, Package, Phone, Smartphone } from 'lucide-react';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
+import { BackButton } from '@/components/site/back-button';
 import { AccessoriesListing, PhonesListing, type Search } from '@/components/site/listings';
 import { SocialLinks } from '@/components/site/social';
 import { WhatsAppButton } from '@/components/site/whatsapp';
@@ -41,6 +42,7 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
         {s?.shopImageUrl && <Image src={s.shopImageUrl} alt={s.shopImageAlt ?? ''} fill priority sizes="100vw" className="object-cover" />}
         <span className="absolute inset-0 bg-navy/60" aria-hidden="true" />
         <div className="container-page relative pb-10 pt-40 lg:pt-32">
+          <BackButton tone="dark" className="mb-6" />
           <div className="glass flex flex-col gap-5 rounded-3xl p-6 sm:p-7 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h1 className="display text-[38px] leading-none sm:text-[48px]">Boutique</h1>

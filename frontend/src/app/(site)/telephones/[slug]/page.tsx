@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { BackButton } from '@/components/site/back-button';
 import { BuyButton } from '@/components/site/buy-button';
 import { ConditionBadge } from '@/components/site/catalog';
 import { Gallery } from '@/components/site/gallery';
@@ -47,6 +48,7 @@ export default async function PhonePage({ params }: { params: Promise<{ slug: st
 
   return (
     <div className="container-page pt-40 lg:pt-32">
+      <BackButton fallback="/boutique" className="mb-6" />
       <div className="grid gap-8 lg:grid-cols-12 lg:gap-14">
         <div className="lg:col-span-6">
           <Gallery images={p.images} alt={`${p.brand.name} ${p.title}`} aspect="portrait" />

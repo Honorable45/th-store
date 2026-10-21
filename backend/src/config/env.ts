@@ -45,8 +45,12 @@ export function loadConfig(): AppConfig {
   }
 
   // Images sur Cloudinary dès que CLOUDINARY_URL est renseignée (cloudinary://CLE:SECRET@NOM_DU_CLOUD), sinon sur disque.
-  const cloudinaryUrl = process.env.CLOUDINARY_URL?.trim();
+  // Tolère le copier-coller de la ligne entière affichée par Cloudinary (« CLOUDINARY_URL=cloudinary://… ») et les guillemets.
+  const cloudinaryUrl = process.env.CLOUDINARY_URL?.trim().replace(/^CLOUDINARY_URL=/, '').replace(/^["']|["']$/g, '');
   let cloudinary: AppConfig['storage']['cloudinary'] = null;
+  // Le SDK Cloudinary relit cette variable à son chargement : on n'y laisse que la valeur nettoyée.
+  if (cloudinaryUrl) process.env.CLOUDINARY_URL = cloudinaryUrl;
+  else delete process.env.CLOUDINARY_URL;
   if (cloudinaryUrl) {
     const m = cloudinaryUrl.match(/^cloudinary:\/\/([^:@\s]+):([^@\s]+)@([^/\s?]+)$/);
     if (!m) throw new Error('CLOUDINARY_URL doit avoir la forme cloudinary://CLE_API:SECRET_API@NOM_DU_CLOUD.');

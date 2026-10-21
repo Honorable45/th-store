@@ -1,4 +1,4 @@
-import { v2 as cloudinary } from 'cloudinary';
+import type * as CloudinarySdk from 'cloudinary';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -39,10 +39,13 @@ export class StorageService {
   private readonly config = loadConfig();
   private readonly logger = new Logger(StorageService.name);
   private readonly cloud = this.config.storage.cloudinary;
+  // Chargé seulement après loadConfig() : le SDK lit CLOUDINARY_URL dès son import et plante si elle est mal formée.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  private readonly sdk = this.cloud ? (require('cloudinary') as typeof CloudinarySdk).v2 : null;
 
   constructor(private readonly crypto: CryptoService) {
     if (this.cloud) {
-      cloudinary.config({ cloud_name: this.cloud.cloudName, api_key: this.cloud.apiKey, api_secret: this.cloud.apiSecret, secure: true, analytics: false });
+      this.sdk!.config({ cloud_name: this.cloud.cloudName, api_key: this.cloud.apiKey, api_secret: this.cloud.apiSecret, secure: true, analytics: false });
     } else if (this.config.nodeEnv === 'production') {
       this.logger.warn('CLOUDINARY_URL absente : les images sont stockées sur le disque du serveur et seront perdues au prochain déploiement.');
     }
@@ -116,7 +119,7 @@ export class StorageService {
   async removePublicImage(key: string) {
     if (this.cloud) {
       try {
-        await cloudinary.uploader.destroy(`${CLOUDINARY_ROOT}/${key}`, { resource_type: 'image', type: 'upload', invalidate: true });
+        await this.sdk!.uploader.destroy(`${CLOUDINARY_ROOT}/${key}`, { resource_type: 'image', type: 'upload', invalidate: true });
       } catch (err) {
         this.logger.warn(`Suppression impossible de ${key} sur Cloudinary : ${(err as Error).message}`);
       }
@@ -138,7 +141,7 @@ export class StorageService {
     const pdf = key.endsWith('.pdf');
     // Les fichiers « raw » (PDF) gardent leur extension dans l'identifiant ; les images non.
     const publicId = `${CLOUDINARY_ROOT}/${pdf ? key : key.replace(/\.webp$/, '')}`;
-    return cloudinary.url(publicId, {
+    return this.sdk!.url(publicId, {
       resource_type: pdf ? 'raw' : 'image',
       type: 'authenticated',
       sign_url: true,
@@ -149,7 +152,7 @@ export class StorageService {
 
   private cloudUpload(data: Buffer, publicId: string, resourceType: 'image' | 'raw', type: 'upload' | 'authenticated') {
     return new Promise<void>((done, fail) => {
-      cloudinary.uploader
+      this.sdk!.uploader
         .upload_stream({ public_id: publicId, resource_type: resourceType, type, overwrite: false, unique_filename: false }, (err) => (err ? fail(new Error(err.message)) : done()))
         .end(data);
     });

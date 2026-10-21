@@ -5,3 +5,5 @@ process.env.BUSINESS_TIMEZONE ??= 'Africa/Lome';
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgresql://thstore@localhost:5434/thstore_test?schema=public';
 process.env.NODE_ENV = 'test';
 process.env.LOCAL_UPLOAD_DIR ??= require('node:os').tmpdir() + '/thstore-test-uploads';
+// Jamais de vrai compte Cloudinary pendant les tests : photos sur disque temporaire.
+delete process.env.CLOUDINARY_URL;

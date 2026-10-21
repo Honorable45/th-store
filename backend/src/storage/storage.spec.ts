@@ -28,6 +28,13 @@ describe('Stockage Cloudinary', () => {
     expect(() => loadConfig()).toThrow('CLOUDINARY_URL');
   });
 
+  it('accepte la ligne entière copiée depuis Cloudinary', () => {
+    process.env.CLOUDINARY_URL = 'CLOUDINARY_URL=cloudinary://123456:secret-test@thstore-demo';
+    resetConfigCache();
+    expect(loadConfig().storage.cloudinary).toEqual({ apiKey: '123456', apiSecret: 'secret-test', cloudName: 'thstore-demo' });
+    expect(process.env.CLOUDINARY_URL).toBe('cloudinary://123456:secret-test@thstore-demo');
+  });
+
   it('sert les images publiques depuis le dossier thstore du compte', () => {
     process.env.CLOUDINARY_URL = 'cloudinary://123456:secret-test@thstore-demo';
     const storage = service();

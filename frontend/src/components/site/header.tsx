@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, Store } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
+import { Store } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/cn';
 import { waLink } from '@/lib/whatsapp';
 import { Logo } from './logo';
@@ -20,12 +20,6 @@ const NAV = [
  */
 export function SiteHeader({ logoUrl, shopName, whatsapp }: { logoUrl: string | null; shopName: string; whatsapp: string | null }) {
   const pathname = usePathname();
-  const router = useRouter();
-  // Retour à la page précédente ; si la page a été ouverte directement (aucun historique), retour à l'accueil.
-  const goBack = () => {
-    if (window.history.length > 1) router.back();
-    else router.push('/');
-  };
   const active = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href)) || (href === '/boutique' && /^\/(telephones|accessoires)/.test(pathname));
 
   const links = (compact: boolean) =>
@@ -48,15 +42,8 @@ export function SiteHeader({ logoUrl, shopName, whatsapp }: { logoUrl: string | 
   return (
     <header className="fixed inset-x-0 top-0 z-40 px-3 pt-3 sm:px-5">
       <div className="glass-light mx-auto max-w-6xl rounded-[28px] lg:rounded-full">
-        <div className={cn('flex h-14 items-center justify-between gap-3 pr-2', pathname === '/' ? 'pl-5' : 'pl-2')}>
-          <div className="flex items-center gap-2">
-            {pathname !== '/' && (
-              <button type="button" onClick={goBack} aria-label="Retour" title="Retour" className="glass-dark inline-flex size-10 items-center justify-center rounded-full text-white transition-transform hover:-translate-x-0.5">
-                <ArrowLeft className="size-[18px]" />
-              </button>
-            )}
-            <Logo logoUrl={logoUrl} name={shopName} />
-          </div>
+        <div className="flex h-14 items-center justify-between gap-3 pl-5 pr-2">
+          <Logo logoUrl={logoUrl} name={shopName} />
           <nav aria-label="Navigation principale" className="hidden lg:block">
             <ul className="flex items-center gap-0.5">{links(false)}</ul>
           </nav>

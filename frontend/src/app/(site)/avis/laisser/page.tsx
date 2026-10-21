@@ -15,7 +15,7 @@ export default async function LeaveReviewPage({ searchParams }: { searchParams: 
   const settings = await serverGet<PublicSettings>('/settings/public', 60);
   return (
     <>
-      <PageHero title="Votre avis" text="Une minute, sans compte. Votre numéro n’est jamais affiché." image={settings?.shopImageUrl} />
+      <PageHero title="Votre avis" text="Une minute, sans compte. Votre numéro n’est jamais affiché." image={settings?.shopImageUrl} back="/avis" />
       <div className="container-page -mt-6 relative">
         <div className="mx-auto max-w-xl rounded-3xl border border-line bg-surface p-6 shadow-card sm:p-8">
           <ReviewForm initialCode={code ?? ''} />

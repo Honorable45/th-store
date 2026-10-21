@@ -133,9 +133,8 @@ pnpm dev
 | `SESSION_TTL_HOURS` | non | Durée de session, 12 h par défaut |
 | `COOKIE_SECURE` | prod | `true` en HTTPS |
 | `TRUST_PROXY` | prod | Nombre de proxys devant l’API (`2` via Vercel → Render) |
-| `STORAGE_DRIVER` | non | `local` (développement) ou `s3` (production) |
-| `LOCAL_UPLOAD_DIR` | non | Dossier des fichiers en mode `local` |
-| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL` | si `s3` | Stockage compatible S3 (Cloudflare R2, Backblaze B2, AWS S3…) |
+| `LOCAL_UPLOAD_DIR` | non | Dossier des photos sans Cloudinary |
+| `CLOUDINARY_URL` | oui en prod | Photos sur Cloudinary (`cloudinary://CLE:SECRET@NOM_DU_CLOUD`). Absente : photos sur le disque (développement) |
 | `PAYGATE_API_KEY` | non | Active le paiement TMoney/Flooz en ligne via PayGate Global |
 | `SEED_MANAGER_EMAIL`, `SEED_MANAGER_NAME`, `SEED_MANAGER_PASSWORD` | au premier `db:seed` | Premier compte Responsable |
 
@@ -233,14 +232,14 @@ Trois services : l’API sur Render, le site et l’administration sur deux proj
 | `ADMIN_ORIGIN` | URL de l’administration, ex. `https://thstore-admin.vercel.app` |
 | `API_PUBLIC_URL` | URL du service Render, ex. `https://thstore-backend.onrender.com` |
 | `DATA_ENCRYPTION_KEY` | `openssl rand -base64 32` — **à sauvegarder hors de Render** |
-| `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL` | stockage des photos (voir ci-dessous) |
+| `CLOUDINARY_URL` | Cloudinary → *API Keys* → « API environment variable » |
 | `PAYGATE_API_KEY` | facultatif, laisser vide |
 
 3. Le démarrage applique les migrations (`prisma migrate deploy`). Créez ensuite une fois le compte Responsable et les données de référence depuis le shell Render :
    `SEED_MANAGER_EMAIL=… SEED_MANAGER_PASSWORD=… pnpm --filter @thstore/backend db:seed`
 4. Vérifiez `https://<api>.onrender.com/health` → `{"status":"ok"}`.
 
-Le disque d’un service Render est éphémère : **utilisez `STORAGE_DRIVER=s3` en production** (déjà réglé dans `render.yaml`), sinon les photos seraient perdues au redéploiement. Avec Cloudflare R2 : `S3_ENDPOINT=https://<id-compte>.r2.cloudflarestorage.com`, `S3_REGION=auto`, `S3_PUBLIC_URL` = domaine public du bucket.
+Le disque d’un service Render est éphémère : **`CLOUDINARY_URL` est indispensable en production**, sinon les photos seraient perdues au redéploiement (l’API l’indique au démarrage). Les photos vont dans le dossier `thstore/` du compte Cloudinary ; les justificatifs et photos envoyées par les clients y sont en accès « authenticated » (URL signée, lue uniquement par l’API).
 
 ### 2. Site et administration sur Vercel
 Créez **deux projets** à partir du même dépôt (le `vercel.json` de chaque dossier installe l’espace de travail pnpm depuis la racine) :
@@ -264,7 +263,7 @@ Si vous changez de domaine (domaine personnalisé), mettez à jour `WEB_ORIGIN` 
 | Service | Usage | Obligatoire |
 |---|---|---|
 | PostgreSQL hébergé (Render, Neon, Supabase…) | données | oui |
-| Stockage compatible S3 (Cloudflare R2 recommandé : sortie gratuite) | photos, justificatifs | oui en production |
+| Cloudinary (offre gratuite suffisante au démarrage) | photos, justificatifs | oui en production |
 | Vercel | site | recommandé |
 | Render | API | recommandé |
 | PayGate Global | TMoney / Flooz en ligne | non — sans clé, le paiement en ligne est désactivé et masqué |

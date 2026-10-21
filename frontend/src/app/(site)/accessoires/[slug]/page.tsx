@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { BackButton } from '@/components/site/back-button';
 import { BuyButton } from '@/components/site/buy-button';
 import { availabilityText, ProductCard, SectionHeading } from '@/components/site/catalog';
 import { Gallery } from '@/components/site/gallery';
@@ -52,6 +53,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
   return (
     <div className="container-page pt-40 lg:pt-32">
+      <BackButton fallback="/boutique?rayon=accessoires" className="mb-6" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
       <div className="grid gap-8 lg:grid-cols-12 lg:gap-14">
         <div className="lg:col-span-7">
