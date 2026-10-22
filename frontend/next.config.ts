@@ -11,7 +11,18 @@ if (process.env.VERCEL) {
   }
 }
 
+// Adresse publique du site (SEO, plan du site, liens envoyés sur WhatsApp).
+// Ordre : NEXT_PUBLIC_SITE_URL si définie (domaine personnalisé), sinon l'adresse de production
+// que Vercel fournit automatiquement au build ; localhost uniquement en développement.
+const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || (vercelHost ? `https://${vercelHost}` : 'http://localhost:3000')).replace(/\/$/, '');
+if (process.env.VERCEL) {
+  console.log(`Adresse du site → ${SITE_URL}`);
+  if (SITE_URL.includes('localhost')) throw new Error('Adresse du site introuvable : définissez NEXT_PUBLIC_SITE_URL sur Vercel.');
+}
+
 const config: NextConfig = {
+  env: { NEXT_PUBLIC_SITE_URL: SITE_URL },
   poweredByHeader: false,
   reactStrictMode: true,
   images: {

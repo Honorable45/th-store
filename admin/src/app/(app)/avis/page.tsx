@@ -44,6 +44,8 @@ function QrPanel() {
   const siteUrl = useSiteUrl();
   const url = `${siteUrl}/avis/laisser`;
   const [printing, setPrinting] = useState(false);
+  // Pas de QR code tant que l'adresse réelle du site n'est pas connue.
+  if (!siteUrl) return <Panel title="QR code de la boutique"><LoadingBlock /></Panel>;
   return (
     <Panel title="QR code de la boutique">
       <div className="flex items-start gap-4">

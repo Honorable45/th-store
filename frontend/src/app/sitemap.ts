@@ -1,8 +1,9 @@
 import type { MetadataRoute } from 'next';
 import { serverGet } from '@/lib/server-api';
 import type { Paginated, PublicPhone, PublicProduct } from '@/lib/types';
+import { SITE_URL } from '@/lib/site';
 
-const site = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+const site = SITE_URL;
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

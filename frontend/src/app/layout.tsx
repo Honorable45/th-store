@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import { ToastProvider } from '@/components/ui/toast';
 import './globals.css';
+import { SITE_URL } from '@/lib/site';
 
 // Polices auto-hébergées (licence SIL OFL) : aucun appel à un service tiers, chargement plus rapide.
 const serif = localFont({
@@ -33,7 +34,7 @@ const mono = localFont({
   preload: false,
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+const siteUrl = SITE_URL;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

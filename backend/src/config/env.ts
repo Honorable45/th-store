@@ -59,13 +59,16 @@ export function loadConfig(): AppConfig {
   const driver = cloudinary ? 'cloudinary' : 'local';
 
   const port = Number(process.env.PORT ?? 4000);
+  const production = process.env.NODE_ENV === 'production';
 
   cached = {
     nodeEnv: process.env.NODE_ENV ?? 'development',
     port,
-    webOrigin: (process.env.WEB_ORIGIN ?? 'http://localhost:3000').replace(/\/$/, ''),
-    adminOrigin: (process.env.ADMIN_ORIGIN ?? 'http://localhost:3001').replace(/\/$/, ''),
-    apiPublicUrl: (process.env.API_PUBLIC_URL ?? `http://localhost:${port}`).replace(/\/$/, ''),
+    // En production, pas de repli localhost : les liens (QR codes d'avis…) seraient inutilisables.
+    webOrigin: (production ? required('WEB_ORIGIN') : (process.env.WEB_ORIGIN ?? 'http://localhost:3000')).replace(/\/$/, ''),
+    adminOrigin: (production ? required('ADMIN_ORIGIN') : (process.env.ADMIN_ORIGIN ?? 'http://localhost:3001')).replace(/\/$/, ''),
+    // Render fournit RENDER_EXTERNAL_URL automatiquement.
+    apiPublicUrl: (process.env.API_PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`).replace(/\/$/, ''),
     timezone: process.env.BUSINESS_TIMEZONE ?? 'Africa/Lome',
     appSecret,
     encryptionKey,

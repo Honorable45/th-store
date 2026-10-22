@@ -10,8 +10,9 @@ import { PHONE_CONDITIONS } from '@/lib/phone-conditions';
 import { serverGet, serverGetOrNotFound } from '@/lib/server-api';
 import type { PublicPhone, PublicSettings } from '@/lib/types';
 import { waLink } from '@/lib/whatsapp';
+import { SITE_URL } from '@/lib/site';
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+const SITE = SITE_URL;
 
 async function load(slug: string) {
   const data = await serverGetOrNotFound<PublicPhone>(`/shop/phones/${encodeURIComponent(slug)}`, 30);

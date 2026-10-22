@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { api } from './api';
 
-/** Valeur de repli tant que l'API n'a pas répondu (ou en développement). */
-const FALLBACK = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+/** Valeur de repli tant que l'API n'a pas répondu : vide en production (jamais de lien localhost). */
+const FALLBACK = (process.env.NEXT_PUBLIC_SITE_URL ?? (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000')).replace(/\/$/, '');
 let cached: Promise<string> | null = null;
 
 /**
