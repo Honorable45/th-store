@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, Boxes, MessageSquareText, PackageCheck, Timer, Wrench, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Boxes, PackageCheck, Timer, Wrench, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Metric, PageHeader, Panel } from '@/components/admin/ui';
 import { useSession } from '@/components/admin/session';
@@ -36,7 +36,6 @@ const QUEUE: { key: string; label: string; href: string; icon: LucideIcon }[] = 
   { key: 'repairsLate', label: 'Réparations en retard', href: '/reparations?onglet=late', icon: Wrench },
   { key: 'repairsReady', label: 'Téléphones prêts à remettre', href: '/reparations?onglet=ready', icon: PackageCheck },
   { key: 'lowStock', label: 'Articles à réapprovisionner', href: '/stocks', icon: Boxes },
-  { key: 'reviewsPending', label: 'Avis à modérer', href: '/avis', icon: MessageSquareText },
 ];
 
 export default function OverviewPage() {

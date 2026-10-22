@@ -1,7 +1,7 @@
 'use client';
 import { useSiteUrl } from '@/lib/site-url';
 
-import { BadgeCheck, Download, MessageSquareText, Printer } from 'lucide-react';
+import { Download, MessageSquareText, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense, useState } from 'react';
 import { QrCode, qrPngDataUrl } from '@/components/admin/qr-code';
@@ -35,6 +35,7 @@ interface ReviewRow {
   moderatedAt: string | null;
   createdAt: string;
   repairJob: { id: string; number: string } | null;
+  order: { id: string; number: string } | null;
   moderatedBy: { name: string } | null;
 }
 
@@ -51,7 +52,7 @@ function QrPanel() {
       <div className="flex items-start gap-4">
         <QrCode value={url} size={112} />
         <div className="text-[13.5px]">
-          <p className="text-ink-2">À afficher au comptoir : il ouvre la page d’avis du site. Pour un avis « vérifié », générez un code depuis le dossier de réparation.</p>
+          <p className="text-ink-2">À afficher au comptoir : il ouvre la page d’avis, où le client saisit le code reçu pour sa réparation ou son achat. Sans code, pas d’avis.</p>
           <p className="mt-2 break-all font-mono text-[12px] text-muted">{url}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" onClick={() => setPrinting(true)}>
@@ -114,15 +115,10 @@ function ReviewCard({ r, onChanged }: { r: ReviewRow; onChanged: () => void }) {
     <li className="px-4 py-4 sm:px-5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <Stars value={r.rating} />
-        <Status tone={REVIEW_STATUS[r.status].tone}>{REVIEW_STATUS[r.status].label}</Status>
-        {r.verified ? (
-          <span className="inline-flex items-center gap-1 text-[12.5px] font-medium text-ok">
-            <BadgeCheck className="size-3.5" /> Vérifié
-            {r.repairJob && <Link href={`/reparations/${r.repairJob.id}`} className="font-mono font-normal text-accent underline">{r.repairJob.number}</Link>}
-          </span>
-        ) : (
-          <Tag>Non vérifié</Tag>
-        )}
+        {r.status !== 'PUBLISHED' && <Status tone={REVIEW_STATUS[r.status].tone}>{REVIEW_STATUS[r.status].label}</Status>}
+        {r.repairJob && <Link href={`/reparations/${r.repairJob.id}`} className="font-mono text-[12.5px] text-accent underline">{r.repairJob.number}</Link>}
+        {r.order && <Link href={`/commandes/${r.order.id}`} className="font-mono text-[12.5px] text-accent underline">{r.order.number}</Link>}
+        {!r.repairJob && !r.order && <Tag>Sans code</Tag>}
         <span className="text-[12.5px] text-muted">
           {r.serviceLabel} · {formatDateTime(r.createdAt)}
           {r.displayName ? ` · ${r.displayName}` : ''}
@@ -143,18 +139,20 @@ function ReviewCard({ r, onChanged }: { r: ReviewRow; onChanged: () => void }) {
         </div>
       )}
       <div className="mt-3 flex flex-wrap gap-2">
-        {r.status !== 'PUBLISHED' && <Button size="sm" onClick={() => moderate('PUBLISHED')}>Publier</Button>}
-        {r.status !== 'HIDDEN' && <Button size="sm" variant="secondary" onClick={() => moderate('HIDDEN')}>Masquer</Button>}
-        {r.status !== 'FLAGGED' && <Button size="sm" variant="ghost" onClick={() => moderate('FLAGGED')}>Signaler</Button>}
+        {r.status === 'PUBLISHED' ? (
+          <Button size="sm" variant="secondary" onClick={() => moderate('HIDDEN')}>Masquer</Button>
+        ) : (
+          <Button size="sm" variant="secondary" onClick={() => moderate('PUBLISHED')}>{r.status === 'HIDDEN' ? 'Republier' : 'Publier'}</Button>
+        )}
         {!replying && <Button size="sm" variant="ghost" onClick={() => setReplying(true)}>{r.shopReply ? 'Modifier la réponse' : 'Répondre'}</Button>}
       </div>
-      {r.moderatedBy && <p className="mt-2 text-[12px] text-faint">Modéré par {r.moderatedBy.name} le {formatDateTime(r.moderatedAt)}</p>}
+      {r.moderatedBy && <p className="mt-2 text-[12px] text-faint">{r.status === 'HIDDEN' ? 'Masqué' : 'Modifié'} par {r.moderatedBy.name} le {formatDateTime(r.moderatedAt)}</p>}
     </li>
   );
 }
 
 function Reviews() {
-  const list = useList<ReviewRow, { counts: Record<string, number> }>('/reviews', params, 'PENDING');
+  const list = useList<ReviewRow, { counts: Record<string, number> }>('/reviews', params, 'PUBLISHED');
   const counts = list.data?.counts ?? {};
   return (
     <>
@@ -165,11 +163,10 @@ function Reviews() {
             value={list.tab}
             onChange={list.setTab}
             items={[
-              { value: 'PENDING', label: 'En attente', count: counts.PENDING },
               { value: 'PUBLISHED', label: 'Publiés', count: counts.PUBLISHED },
-              { value: 'FLAGGED', label: 'Signalés', count: counts.FLAGGED },
               { value: 'HIDDEN', label: 'Masqués', count: counts.HIDDEN },
-              { value: 'verified', label: 'Vérifiés' },
+              // Anciens avis déposés avant l'obligation du code (en attente de décision).
+              ...(counts.PENDING ? [{ value: 'PENDING', label: 'Anciens à traiter', count: counts.PENDING }] : []),
               { value: 'all', label: 'Tous' },
             ]}
           />

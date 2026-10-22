@@ -233,18 +233,4 @@ export class RepairsController {
   imei(@Param('id') id: string, @CurrentUser() me: AuthUser) {
     return this.repairs.revealImei(id, me.id);
   }
-
-  @Post(':id/review-code')
-  @RequirePermissions('reviews.tokens')
-  async reviewCode(@Param('id') id: string, @CurrentUser() me: AuthUser) {
-    const result = await this.repairs.issueReviewCode(id, me.id);
-    return { ...result, url: `${this.webOrigin}/avis/laisser?code=${result.code}` };
-  }
-
-  @Post(':id/review-code/revoke')
-  @HttpCode(200)
-  @RequirePermissions('reviews.tokens')
-  async revokeReviewCode(@Param('id') id: string, @CurrentUser() me: AuthUser) {
-    return this.present(await this.repairs.revokeReviewCode(id, me.id), me);
-  }
 }

@@ -57,13 +57,11 @@ export const repairDetailInclude = {
   history: { orderBy: { createdAt: 'desc' as const }, include: { user: { select: { name: true } } } },
   payments: { orderBy: { createdAt: 'asc' as const }, include: { recordedBy: { select: { name: true } } } },
   review: { select: { id: true, rating: true, status: true, createdAt: true } },
-  reviewTokens: { orderBy: { createdAt: 'desc' as const }, take: 1, select: { id: true, createdAt: true, expiresAt: true, revokedAt: true, usedAt: true } },
   request: { select: { id: true, reference: true } },
 } satisfies Prisma.RepairJobInclude;
 
 export type RepairDetail = Prisma.RepairJobGetPayload<{ include: typeof repairDetailInclude }>;
 
-const REVIEW_CODE_DAYS = 90;
 
 @Injectable()
 export class RepairsService {
@@ -393,36 +391,5 @@ export class RepairsService {
     if (!job.imeiEncrypted) return { imei: null };
     await this.audit.log({ userId, action: 'repair.imei.read', entity: 'RepairJob', entityId: id, summary: `Consultation de l'IMEI du dossier ${job.number}` });
     return { imei: this.crypto.decrypt(job.imeiEncrypted) };
-  }
-
-  // ─── Code de vérification d'avis
-
-  /**
-   * Génère un code d'avis vérifié pour une réparation terminée.
-   * Le code n'est montré qu'une fois ; seule son empreinte est conservée.
-   * Un nouveau code révoque le précédent.
-   */
-  async issueReviewCode(id: string, userId: string) {
-    return this.prisma.run(async (tx) => {
-      const job = await this.lock(tx, id);
-      if (!DONE_STATUSES.includes(job.status)) throw new ConflictException('Le code d’avis est disponible une fois la réparation terminée.');
-      if (await tx.review.findUnique({ where: { repairJobId: id } })) throw new ConflictException('Un avis vérifié a déjà été publié pour ce dossier.');
-      await tx.reviewVerificationToken.updateMany({ where: { repairJobId: id, revokedAt: null, usedAt: null }, data: { revokedAt: new Date() } });
-      const code = this.crypto.randomCode(10);
-      const expiresAt = new Date(Date.now() + REVIEW_CODE_DAYS * 86400_000);
-      await tx.reviewVerificationToken.create({ data: { repairJobId: id, codeHash: this.crypto.hmac(code, 'review'), createdById: userId, expiresAt } });
-      await this.history(tx, id, 'REVIEW', "Code d'avis client généré", userId);
-      return { code, expiresAt };
-    });
-  }
-
-  async revokeReviewCode(id: string, userId: string) {
-    await this.prisma.run(async (tx) => {
-      await this.lock(tx, id);
-      const { count } = await tx.reviewVerificationToken.updateMany({ where: { repairJobId: id, revokedAt: null, usedAt: null }, data: { revokedAt: new Date() } });
-      if (!count) throw new ConflictException('Aucun code actif pour ce dossier.');
-      await this.history(tx, id, 'REVIEW', "Code d'avis client révoqué", userId);
-    });
-    return this.get(id);
   }
 }

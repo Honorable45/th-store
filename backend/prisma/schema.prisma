@@ -36,26 +36,26 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  sessions          Session[]
-  auditLogs         AuditLog[]
-  assignedRepairs   RepairJob[]           @relation("RepairTechnician")
-  createdRepairs    RepairJob[]           @relation("RepairCreatedBy")
-  repairHistory     RepairStatusHistory[]
-  orderHistory      OrderStatusHistory[]
-  createdOrders     Order[]               @relation("OrderCreatedBy")
-  payments          Payment[]
-  movements         InventoryMovement[]
-  expenses          Expense[]             @relation("ExpenseCreatedBy")
-  voidedExpenses    Expense[]             @relation("ExpenseVoidedBy")
-  purchases         Purchase[]            @relation("PurchaseCreatedBy")
-  repairParts       RepairPart[]
-  quotes            RepairQuote[]
-  reviewTokens      ReviewVerificationToken[]
-  moderatedReviews  Review[]
-  usedPhoneEvents   UsedPhoneEvent[]
-  inventoryCounts   InventoryCount[]
-  orderReturns      OrderReturn[]
-  purchasePayments  PurchasePayment[]
+  sessions         Session[]
+  auditLogs        AuditLog[]
+  assignedRepairs  RepairJob[]               @relation("RepairTechnician")
+  createdRepairs   RepairJob[]               @relation("RepairCreatedBy")
+  repairHistory    RepairStatusHistory[]
+  orderHistory     OrderStatusHistory[]
+  createdOrders    Order[]                   @relation("OrderCreatedBy")
+  payments         Payment[]
+  movements        InventoryMovement[]
+  expenses         Expense[]                 @relation("ExpenseCreatedBy")
+  voidedExpenses   Expense[]                 @relation("ExpenseVoidedBy")
+  purchases        Purchase[]                @relation("PurchaseCreatedBy")
+  repairParts      RepairPart[]
+  quotes           RepairQuote[]
+  reviewTokens     ReviewVerificationToken[]
+  moderatedReviews Review[]
+  usedPhoneEvents  UsedPhoneEvent[]
+  inventoryCounts  InventoryCount[]
+  orderReturns     OrderReturn[]
+  purchasePayments PurchasePayment[]
 }
 
 model Session {
@@ -168,25 +168,25 @@ model Customer {
 // ───────────────────────────── Marques et modèles (réparation, compatibilités, occasions)
 
 model Brand {
-  id         String       @id @default(cuid())
-  name       String       @unique
-  slug       String       @unique
-  position   Int          @default(0)
-  active     Boolean      @default(true)
+  id         String                 @id @default(cuid())
+  name       String                 @unique
+  slug       String                 @unique
+  position   Int                    @default(0)
+  active     Boolean                @default(true)
   models     PhoneModel[]
   compat     ProductCompatibility[]
   usedPhones UsedPhone[]
 }
 
 model PhoneModel {
-  id           String        @id @default(cuid())
+  id           String                 @id @default(cuid())
   brandId      String
-  brand        Brand         @relation(fields: [brandId], references: [id])
+  brand        Brand                  @relation(fields: [brandId], references: [id])
   name         String
   slug         String
-  position     Int           @default(0)
-  active       Boolean       @default(true)
-  createdAt    DateTime      @default(now())
+  position     Int                    @default(0)
+  active       Boolean                @default(true)
+  createdAt    DateTime               @default(now())
   repairPrices RepairPrice[]
   compat       ProductCompatibility[]
   usedPhones   UsedPhone[]
@@ -221,15 +221,15 @@ model Category {
 }
 
 model Supplier {
-  id        String     @id @default(cuid())
+  id        String      @id @default(cuid())
   name      String
   phone     String?
   email     String?
   address   String?
   notes     String?
-  active    Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  active    Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
   products  Product[]
   purchases Purchase[]
   phones    UsedPhone[]
@@ -262,13 +262,13 @@ model Product {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
-  images         ProductImage[]
-  compatibility  ProductCompatibility[]
-  movements      InventoryMovement[]
-  orderItems     OrderItem[]
-  purchaseItems  PurchaseItem[]
-  repairParts    RepairPart[]
-  countLines     InventoryCountLine[]
+  images        ProductImage[]
+  compatibility ProductCompatibility[]
+  movements     InventoryMovement[]
+  orderItems    OrderItem[]
+  purchaseItems PurchaseItem[]
+  repairParts   RepairPart[]
+  countLines    InventoryCountLine[]
 
   @@index([kind, status, published])
   @@index([categoryId])
@@ -578,32 +578,32 @@ enum RepairRequestStatus {
 }
 
 model RepairRequest {
-  id                String              @id @default(cuid())
-  reference         String              @unique
-  brandName         String
-  phoneModelId      String?
-  phoneModel        PhoneModel?         @relation(fields: [phoneModelId], references: [id])
-  modelName         String
-  repairTypeId      String?
-  repairType        RepairType?         @relation(fields: [repairTypeId], references: [id])
-  issueLabel        String
+  id               String              @id @default(cuid())
+  reference        String              @unique
+  brandName        String
+  phoneModelId     String?
+  phoneModel       PhoneModel?         @relation(fields: [phoneModelId], references: [id])
+  modelName        String
+  repairTypeId     String?
+  repairType       RepairType?         @relation(fields: [repairTypeId], references: [id])
+  issueLabel       String
   // Estimation affichée au client au moment de la demande (copie figée du tarif).
-  estimatedParts    Int?
-  estimatedLabor    Int?
-  estimatedTotal    Int?
-  estimatedMinutes  Int?
-  customerName      String?
-  customerPhone     String
-  customerId        String?
-  customer          Customer?           @relation(fields: [customerId], references: [id])
-  description       String?
-  photoKey          String?
-  status            RepairRequestStatus @default(NEW)
-  internalNote      String?
-  repairJobId       String?             @unique
-  repairJob         RepairJob?          @relation(fields: [repairJobId], references: [id])
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  estimatedParts   Int?
+  estimatedLabor   Int?
+  estimatedTotal   Int?
+  estimatedMinutes Int?
+  customerName     String?
+  customerPhone    String
+  customerId       String?
+  customer         Customer?           @relation(fields: [customerId], references: [id])
+  description      String?
+  photoKey         String?
+  status           RepairRequestStatus @default(NEW)
+  internalNote     String?
+  repairJobId      String?             @unique
+  repairJob        RepairJob?          @relation(fields: [repairJobId], references: [id])
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
   @@index([status, createdAt])
 }
@@ -808,10 +808,12 @@ model Order {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
-  items    OrderItem[]
-  payments Payment[]
-  history  OrderStatusHistory[]
-  returns  OrderReturn[]
+  items        OrderItem[]
+  payments     Payment[]
+  history      OrderStatusHistory[]
+  review       Review?
+  reviewTokens ReviewVerificationToken[]
+  returns      OrderReturn[]
 
   @@index([status, createdAt])
   @@index([completedAt])
@@ -997,9 +999,11 @@ model Review {
   serviceType    ReviewService
   status         ReviewStatus  @default(PENDING)
   verified       Boolean       @default(false)
-  // Un dossier de réparation ne peut porter qu'un seul avis vérifié.
+  // Un dossier de réparation ou une vente ne peut porter qu'un seul avis.
   repairJobId    String?       @unique
   repairJob      RepairJob?    @relation(fields: [repairJobId], references: [id])
+  orderId        String?       @unique
+  order          Order?        @relation(fields: [orderId], references: [id])
   moderatedAt    DateTime?
   moderatedById  String?
   moderatedBy    User?         @relation(fields: [moderatedById], references: [id])
@@ -1012,18 +1016,23 @@ model Review {
   @@index([status, createdAt])
 }
 
+/// Code d'avis : remis au client pour une réparation ou une vente ; sans code, pas d'avis.
 model ReviewVerificationToken {
-  id          String    @id @default(cuid())
-  repairJobId String
-  repairJob   RepairJob @relation(fields: [repairJobId], references: [id])
-  // Empreinte HMAC du code : le code lui-même n'est jamais stocké.
-  codeHash    String    @unique
-  createdById String
-  createdBy   User      @relation(fields: [createdById], references: [id])
-  createdAt   DateTime  @default(now())
-  expiresAt   DateTime
-  revokedAt   DateTime?
-  usedAt      DateTime?
+  id            String     @id @default(cuid())
+  repairJobId   String?
+  repairJob     RepairJob? @relation(fields: [repairJobId], references: [id])
+  orderId       String?
+  order         Order?     @relation(fields: [orderId], references: [id])
+  // Empreinte HMAC du code (recherche) ; le code est aussi conservé chiffré pour rester affichable dans l'administration.
+  codeHash      String     @unique
+  codeEncrypted String?
+  createdById   String
+  createdBy     User       @relation(fields: [createdById], references: [id])
+  createdAt     DateTime   @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  usedAt        DateTime?
 
   @@index([repairJobId])
+  @@index([orderId])
 }

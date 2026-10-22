@@ -65,6 +65,7 @@ const SELLER: Permission[] = [
   'orders.manage',
   'customers.read',
   'customers.write',
+  'reviews.tokens',
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {

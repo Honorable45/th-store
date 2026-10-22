@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { use, useEffect, useState, type ReactNode } from 'react';
 import { PaymentsPanel } from '@/components/admin/payments-panel';
 import { CostsPanel, PartsPanel } from '@/components/admin/repair/parts-costs';
-import { ImeiValue, ReviewCodePanel, TrackingPanel, WorkPanel } from '@/components/admin/repair/extras';
+import { ImeiValue, TrackingPanel, WorkPanel } from '@/components/admin/repair/extras';
+import { ReviewCodePanel } from '@/components/admin/review-code-panel';
 import { HistoryPanel, QuotesPanel, StatusActions } from '@/components/admin/repair/workflow';
 import { useCan } from '@/components/admin/session';
 import { DetailList, PageHeader, Panel } from '@/components/admin/ui';
@@ -113,7 +114,7 @@ export default function RepairPage({ params }: { params: Promise<{ id: string }>
             disabledReason={repair.status === 'CANCELLED' ? 'Dossier annulé : aucun encaissement possible.' : !repair.billedAmount ? 'Fixez d’abord le montant facturé (devis accepté ou montant convenu).' : null}
           />
           <TrackingPanel repair={repair} shopName={settings.data?.shopName ?? 'TH Store'} />
-          <ReviewCodePanel repair={repair} onUpdate={update} />
+          {repair.status !== 'CANCELLED' && <ReviewCodePanel kind="reparation" id={repair.id} customerPhone={repair.customer.phone} />}
         </div>
       </div>
     </>

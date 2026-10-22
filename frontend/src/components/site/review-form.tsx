@@ -6,7 +6,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { api, errorMessage } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/button';
-import { Field, FormError, Input, Select, Textarea } from '@/components/ui/field';
+import { Field, FormError, Input, Textarea } from '@/components/ui/field';
 
 function RatingInput({ label, value, onChange, required }: { label: string; value: number; onChange: (v: number) => void; required?: boolean }) {
   const words = ['', 'Très décevant', 'Décevant', 'Correct', 'Bien', 'Excellent'];
@@ -36,11 +36,17 @@ function RatingInput({ label, value, onChange, required }: { label: string; valu
   );
 }
 
+type Checked = { serviceType: 'REPAIR' | 'ACCESSORY_PURCHASE' | 'PHONE_PURCHASE'; subject: string };
+
+/**
+ * Avis client en deux temps : le code remis par la boutique (obligatoire), puis la note.
+ * Le code est vérifié avant la saisie ; l'avis est publié dès l'envoi.
+ */
 export function ReviewForm({ initialCode }: { initialCode: string }) {
   const [code, setCode] = useState(initialCode);
-  const [verified, setVerified] = useState<{ device: string } | null>(null);
+  const [checked, setChecked] = useState<Checked | null>(null);
+  const [checking, setChecking] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
-  const [service, setService] = useState('REPAIR');
   const [rating, setRating] = useState(0);
   const [ratingRepair, setRatingRepair] = useState(0);
   const [ratingWelcome, setRatingWelcome] = useState(0);
@@ -49,18 +55,24 @@ export function ReviewForm({ initialCode }: { initialCode: string }) {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [done, setDone] = useState<{ verified: boolean } | null>(null);
+  const [done, setDone] = useState(false);
+
+  const check = async (value: string) => {
+    if (value.replace(/[^a-z0-9]/gi, '').length < 8) return setCodeError('Saisissez le code à 8 caractères reçu de la boutique.');
+    setChecking(true);
+    setCodeError(null);
+    try {
+      setChecked(await api.get<Checked>(`/reviews/check-code?code=${encodeURIComponent(value.trim())}`));
+    } catch (err) {
+      setCodeError(errorMessage(err));
+    } finally {
+      setChecking(false);
+    }
+  };
 
   useEffect(() => {
-    if (!initialCode) return;
-    api
-      .get<{ device: string }>(`/reviews/check-code?code=${encodeURIComponent(initialCode)}`)
-      .then((r) => {
-        setVerified(r);
-        setService('REPAIR');
-      })
-      .catch((err) => setCodeError(errorMessage(err)));
-  }, [initialCode]);
+    if (initialCode) void check(initialCode);
+  }, [initialCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -68,17 +80,16 @@ export function ReviewForm({ initialCode }: { initialCode: string }) {
     setSending(true);
     setError(null);
     try {
-      const res = await api.post<{ verified: boolean }>('/reviews', {
+      await api.post('/reviews', {
         rating,
         ratingRepair: ratingRepair || undefined,
         ratingWelcome: ratingWelcome || undefined,
         ratingValue: ratingValue || undefined,
         comment: comment.trim() || undefined,
         displayName: displayName.trim() || undefined,
-        serviceType: verified ? 'REPAIR' : service,
-        code: code.trim() || undefined,
+        code: code.trim(),
       });
-      setDone(res);
+      setDone(true);
     } catch (err) {
       setError(errorMessage(err));
       setSending(false);
@@ -88,48 +99,45 @@ export function ReviewForm({ initialCode }: { initialCode: string }) {
   if (done) {
     return (
       <div className="animate-slide-up text-center">
-        <h2 className="display text-[28px]">Merci pour votre avis.</h2>
-        <p className="mt-3 text-[15px] text-ink-2">
-          {done.verified ? 'Il est lié à votre réparation et portera la mention « Réparation vérifiée ».' : ''} Il sera publié après une vérification de forme.
-        </p>
-        <Link href="/" className="mt-6 inline-block text-[14.5px] font-medium text-accent underline">
-          Retour à l’accueil
+        <h2 className="display text-[28px]">Merci pour votre avis !</h2>
+        <p className="mt-3 text-[15px] text-ink-2">Il est publié sur le site.</p>
+        <Link href="/avis" className="mt-6 inline-block text-[14.5px] font-medium text-accent underline">
+          Voir les avis
         </Link>
       </div>
     );
   }
 
+  if (!checked) {
+    return (
+      <form
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          void check(code);
+        }}
+        className="space-y-5"
+      >
+        <Field label="Votre code d’avis" error={codeError} hint="Remis par TH Store après votre réparation ou votre achat (message WhatsApp, ticket ou QR code).">
+          {(p) => <Input {...p} value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} required autoComplete="off" autoCapitalize="characters" className="font-mono text-[18px] uppercase tracking-[0.2em]" maxLength={16} placeholder="ABCD-2345" />}
+        </Field>
+        <Button type="submit" size="lg" loading={checking} className="w-full">
+          Continuer
+        </Button>
+        <p className="text-center text-[13px] text-muted">Pas de code ? Demandez-le à la boutique sur WhatsApp.</p>
+      </form>
+    );
+  }
+
   return (
     <form onSubmit={submit} noValidate className="space-y-7">
-      {verified ? (
-        <p className="flex items-start gap-2.5 border-l-2 border-ok bg-ok-soft px-4 py-3 text-[14.5px] text-ok">
-          <BadgeCheck className="mt-0.5 size-4 shrink-0" />
-          <span>
-            Réparation vérifiée : {verified.device}. Votre avis portera cette mention.
-          </span>
-        </p>
-      ) : (
-        <>
-          <Field label="Votre expérience concerne">
-            {(p) => (
-              <Select {...p} value={service} onChange={(e) => setService(e.target.value)}>
-                <option value="REPAIR">Une réparation</option>
-                <option value="ACCESSORY_PURCHASE">L’achat d’accessoires</option>
-                <option value="PHONE_PURCHASE">L’achat d’un téléphone</option>
-                <option value="OTHER">Autre</option>
-              </Select>
-            )}
-          </Field>
-          {service === 'REPAIR' && (
-            <Field label="Code de vérification" optional error={codeError} hint="Remis par l’atelier à la fin de la réparation. Il permet d’afficher la mention « Réparation vérifiée ».">
-              {(p) => <Input {...p} value={code} onChange={(e) => setCode(e.target.value)} autoComplete="off" className="font-mono uppercase tracking-widest" maxLength={16} />}
-            </Field>
-          )}
-        </>
-      )}
+      <p className="flex items-start gap-2.5 border-l-2 border-ok bg-ok-soft px-4 py-3 text-[14.5px] text-ok">
+        <BadgeCheck className="mt-0.5 size-4 shrink-0" />
+        <span>{checked.subject}</span>
+      </p>
 
       <RatingInput label="Note générale" value={rating} onChange={setRating} required />
-      {(verified || service === 'REPAIR') && <RatingInput label="Qualité de la réparation" value={ratingRepair} onChange={setRatingRepair} />}
+      {checked.serviceType === 'REPAIR' && <RatingInput label="Qualité de la réparation" value={ratingRepair} onChange={setRatingRepair} />}
       <RatingInput label="Accueil" value={ratingWelcome} onChange={setRatingWelcome} />
       <RatingInput label="Rapport qualité-prix" value={ratingValue} onChange={setRatingValue} />
 

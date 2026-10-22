@@ -110,7 +110,6 @@ export interface RepairDetail {
   history: { id: string; type: string; message: string; createdAt: string; user: { name: string } | null }[];
   payments: PaymentRow[];
   review: { id: string; rating: number; status: string; createdAt: string } | null;
-  reviewTokens: { id: string; createdAt: string; expiresAt: string; revokedAt: string | null; usedAt: string | null }[];
   financials: null | {
     billedAmount: number;
     partsCost: number;

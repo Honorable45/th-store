@@ -1,7 +1,6 @@
 'use client';
 
 import { Eye, Printer } from 'lucide-react';
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api, errorMessage } from '@/lib/api';
 import type { RepairDetail, StaffMember } from '@/lib/admin-types';
@@ -12,7 +11,6 @@ import { Dialog } from '@/components/ui/dialog';
 import { Field, Input, Select, Textarea } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
 import { DetailList, Panel } from '../ui';
-import { QrCode } from '../qr-code';
 import { useCan } from '../session';
 
 type Update = (r: RepairDetail) => void;
@@ -173,84 +171,6 @@ export function TrackingPanel({ repair, shopName }: { repair: RepairDetail; shop
           <p className="mt-4 text-[11px] text-muted">Aucune intervention n’est réalisée sans votre accord sur le devis. Conservez ce bon : il est demandé lors du retrait.</p>
         </div>
       </Dialog>
-    </Panel>
-  );
-}
-
-/** Code d'avis vérifié : généré une fois la réparation terminée, montré une seule fois. */
-export function ReviewCodePanel({ repair, onUpdate }: { repair: RepairDetail; onUpdate: Update }) {
-  const can = useCan();
-  const { notify } = useToast();
-  const [code, setCode] = useState<{ code: string; url: string; expiresAt: string } | null>(null);
-  const [loading, setLoading] = useState(false);
-  if (!can('reviews.tokens')) return null;
-  const done = repair.status === 'COMPLETED' || repair.status === 'PICKED_UP';
-  const token = repair.reviewTokens[0];
-  const active = token && !token.revokedAt && !token.usedAt && new Date(token.expiresAt) > new Date();
-
-  const generate = async () => {
-    setLoading(true);
-    try {
-      setCode(await api.post(`/repairs/${repair.id}/review-code`));
-    } catch (err) {
-      notify(errorMessage(err), 'bad');
-    } finally {
-      setLoading(false);
-    }
-  };
-  const revoke = async () => {
-    try {
-      onUpdate(await api.post<RepairDetail>(`/repairs/${repair.id}/review-code/revoke`));
-      setCode(null);
-      notify('Code révoqué.');
-    } catch (err) {
-      notify(errorMessage(err), 'bad');
-    }
-  };
-
-  return (
-    <Panel title="Avis vérifié">
-      {repair.review ? (
-        <p className="text-[13.5px]">
-          Avis reçu le {formatDate(repair.review.createdAt)} ({repair.review.rating}/5).{' '}
-          <Link href="/avis" className="text-accent underline">
-            Voir les avis
-          </Link>
-        </p>
-      ) : !done ? (
-        <p className="text-[13.5px] text-muted">Disponible lorsque la réparation est terminée.</p>
-      ) : code ? (
-        <div className="print-area">
-          <div className="flex items-start gap-4">
-            <QrCode value={code.url} size={104} />
-            <div>
-              <p className="text-[12.5px] text-muted">Code à remettre au client</p>
-              <p className="font-mono text-[22px] tracking-[0.16em]">{code.code}</p>
-              <p className="mt-1 text-[12px] text-muted">Valable jusqu’au {formatDate(code.expiresAt)}, utilisable une seule fois.</p>
-            </div>
-          </div>
-          <p className="mt-3 text-[12px] text-muted">Ce code n’est affiché qu’une fois. Notez-le, imprimez-le ou faites scanner le QR code au client.</p>
-          <div className="mt-3 flex gap-2">
-            <Button size="sm" variant="secondary" onClick={() => window.print()}>
-              <Printer className="size-4" /> Imprimer
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="text-[13.5px]">
-          <p className="text-muted">{active ? `Un code actif a été généré le ${formatDate(token.createdAt)}.` : 'Remettez au client un code unique pour publier un avis « Réparation vérifiée ».'}</p>
-          <div className="mt-3 flex gap-2">
-            <Button size="sm" variant="secondary" onClick={generate} loading={loading}>
-              {active ? 'Générer un nouveau code' : 'Générer le code'}
-            </Button>
-            {active && (
-              <Button size="sm" variant="ghost" onClick={revoke}>
-                Révoquer
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
     </Panel>
   );
 }

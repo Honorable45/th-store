@@ -170,30 +170,56 @@ describe('Réparations', () => {
   });
 });
 
-describe('Avis vérifiés', () => {
-  it('exige une réparation terminée et un code à usage unique', async () => {
+describe('Avis clients', () => {
+  it('exige un code, attend la fin de la réparation et publie aussitôt', async () => {
+    const server = request(f.app.getHttpServer());
     const created = await f.agents.technician.post('/repairs').set(CSRF).send({ customerPhone: '90000004', brandName: 'Apple', modelName: 'iPhone 8', reportedIssue: 'Batterie', billedAmount: 10000 }).expect(201);
     const id = created.body.id;
-    await f.agents.technician.post(`/repairs/${id}/review-code`).set(CSRF).expect(409);
+
+    // Sans code : refusé.
+    await server.post('/reviews').send({ rating: 5, comment: 'Super' }).expect(400);
+
+    // Code créé automatiquement, stable d'un affichage à l'autre, utilisable seulement après la réparation.
+    const code = (await f.agents.technician.get(`/review-codes/reparation/${id}`).expect(200)).body;
+    expect(code).toMatchObject({ usable: false, review: null });
+    expect((await f.agents.technician.get(`/review-codes/reparation/${id}`).expect(200)).body.code).toBe(code.code);
+    const early = await server.post('/reviews').send({ rating: 5, code: code.code }).expect(400);
+    expect(early.body.message).toContain('pas encore terminée');
+
     await f.agents.technician.post(`/repairs/${id}/status`).set(CSRF).send({ status: 'IN_PROGRESS' }).expect(200);
     await f.agents.technician.post(`/repairs/${id}/status`).set(CSRF).send({ status: 'COMPLETED' }).expect(200);
+    expect((await server.get(`/reviews/check-code?code=${code.code}`).expect(200)).body).toMatchObject({ serviceType: 'REPAIR', subject: 'Réparation de votre Apple iPhone 8' });
 
-    const first = await f.agents.technician.post(`/repairs/${id}/review-code`).set(CSRF).expect(201);
-    const second = await f.agents.technician.post(`/repairs/${id}/review-code`).set(CSRF).expect(201);
-    const server = request(f.app.getHttpServer());
-    // Le premier code a été révoqué par le second.
-    await server.post('/reviews').send({ rating: 5, serviceType: 'REPAIR', code: first.body.code }).expect(400);
-    const ok = await server.post('/reviews').send({ rating: 4, comment: 'Rapide', serviceType: 'REPAIR', code: second.body.code }).expect(201);
-    expect(ok.body.verified).toBe(true);
-    await server.post('/reviews').send({ rating: 1, serviceType: 'REPAIR', code: second.body.code }).expect(400);
-
-    // Avis non publié tant qu'il n'est pas modéré.
-    expect((await server.get('/reviews/public').expect(200)).body.total).toBe(0);
-    const review = await f.prisma.review.findFirstOrThrow({ where: { repairJobId: id } });
-    await f.agents.manager.post(`/reviews/${review.id}/moderate`).set(CSRF).send({ status: 'PUBLISHED' }).expect(200);
+    await server.post('/reviews').send({ rating: 4, comment: 'Rapide', code: code.code }).expect(201);
+    // Publié immédiatement, sans modération, sans donnée personnelle.
     const pub = await server.get('/reviews/public').expect(200);
-    expect(pub.body.items[0]).toMatchObject({ verified: true, comment: 'Rapide' });
+    expect(pub.body.items[0]).toMatchObject({ verified: true, comment: 'Rapide', serviceType: 'REPAIR' });
     expect(JSON.stringify(pub.body)).not.toContain('90000004');
+
+    // Code à usage unique ; plus de nouveau code une fois l'avis donné.
+    await server.post('/reviews').send({ rating: 1, code: code.code }).expect(400);
+    await f.agents.technician.post(`/review-codes/reparation/${id}/regenerate`).set(CSRF).expect(409);
+    expect((await f.agents.technician.get(`/review-codes/reparation/${id}`).expect(200)).body).toMatchObject({ code: null, review: { rating: 4 } });
+
+    // La boutique peut masquer un avis abusif.
+    const review = await f.prisma.review.findFirstOrThrow({ where: { repairJobId: id } });
+    await f.agents.manager.post(`/reviews/${review.id}/moderate`).set(CSRF).send({ status: 'HIDDEN' }).expect(200);
+    expect((await server.get('/reviews/public').expect(200)).body.total).toBe(0);
+  });
+
+  it('donne un code à chaque vente ; un nouveau code annule l’ancien', async () => {
+    const server = request(f.app.getHttpServer());
+    const p = await createProduct(f, { name: 'Coque avis', price: 3000, stock: 2, cost: 1000 });
+    const sale = await f.agents.seller.post('/orders/counter-sale').set(CSRF).send({ items: [{ productId: p.id, quantity: 1 }], payments: [{ method: 'CASH', amount: 3000 }] }).expect(201);
+    const first = (await f.agents.seller.get(`/review-codes/vente/${sale.body.id}`).expect(200)).body;
+    expect(first.usable).toBe(true);
+    const second = (await f.agents.seller.post(`/review-codes/vente/${sale.body.id}/regenerate`).set(CSRF).expect(200)).body;
+    expect(second.code).not.toBe(first.code);
+    await server.post('/reviews').send({ rating: 5, code: first.code }).expect(400);
+    await server.post('/reviews').send({ rating: 5, ratingRepair: 5, code: second.code }).expect(201);
+    const review = await f.prisma.review.findFirstOrThrow({ where: { orderId: sale.body.id } });
+    expect(review).toMatchObject({ serviceType: 'ACCESSORY_PURCHASE', status: 'PUBLISHED', ratingRepair: null });
+    await f.agents.seller.get('/review-codes/autre/x').expect(404);
   });
 });
 

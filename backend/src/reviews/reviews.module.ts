@@ -1,12 +1,12 @@
-import { Body, Controller, Get, HttpCode, Module, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Module, NotFoundException, Param, PipeTransform, Post, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Prisma, ReviewService, ReviewStatus } from '@prisma/client';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 import { AuthUser, ClientIp, CurrentUser, Public, RequirePermissions } from '../auth/decorators';
 import { PageQuery, paginate, skipTake } from '../common/pagination';
 import { PrismaService } from '../prisma/prisma.service';
-import { ReviewsService, SERVICE_LABELS } from './reviews.service';
+import { ReviewsService, SERVICE_LABELS, type ReviewTarget } from './reviews.service';
 
 class ReviewDto {
   @IsInt() @Min(1) @Max(5) rating: number;
@@ -15,8 +15,9 @@ class ReviewDto {
   @IsOptional() @IsInt() @Min(1) @Max(5) ratingValue?: number;
   @IsOptional() @IsString() @MaxLength(1500) comment?: string;
   @IsOptional() @IsString() @MaxLength(40) displayName?: string;
-  @IsEnum(ReviewService) serviceType: ReviewService;
-  @IsOptional() @IsString() @MaxLength(20) code?: string;
+  /** Ignoré : le type de service est déduit du code (accepté pour les anciennes versions du formulaire). */
+  @IsOptional() @IsEnum(ReviewService) serviceType?: ReviewService;
+  @IsString({ message: 'Le code d’avis est obligatoire.' }) @MinLength(8, { message: 'Le code d’avis est obligatoire.' }) @MaxLength(20) code: string;
 }
 
 class ModerateDto {
@@ -100,7 +101,7 @@ export class ReviewsController {
       this.prisma.review.findMany({
         where,
         orderBy: { createdAt: 'desc' },
-        include: { repairJob: { select: { id: true, number: true } }, moderatedBy: { select: { name: true } } },
+        include: { repairJob: { select: { id: true, number: true } }, order: { select: { id: true, number: true } }, moderatedBy: { select: { name: true } } },
         ...skipTake(q),
       }),
       this.prisma.review.count({ where }),
@@ -127,5 +128,36 @@ export class ReviewsController {
   }
 }
 
-@Module({ controllers: [ReviewsController], providers: [ReviewsService] })
+/** « reparation » ou « vente » uniquement. */
+class KindPipe implements PipeTransform<string> {
+  transform(value: string) {
+    if (value !== 'reparation' && value !== 'vente') throw new NotFoundException();
+    return value;
+  }
+}
+
+/** Codes d'avis d'une réparation ou d'une vente (affichés dans l'administration, remis au client). */
+@Controller('review-codes')
+export class ReviewCodesController {
+  constructor(private readonly reviews: ReviewsService) {}
+
+  private target(kind: string, id: string): ReviewTarget {
+    return { kind: kind === 'reparation' ? 'repair' : 'order', id };
+  }
+
+  @Get(':kind/:id')
+  @RequirePermissions('reviews.tokens')
+  current(@Param('kind', new KindPipe()) kind: string, @Param('id') id: string, @CurrentUser() me: AuthUser) {
+    return this.reviews.currentCode(this.target(kind, id), me.id);
+  }
+
+  @Post(':kind/:id/regenerate')
+  @HttpCode(200)
+  @RequirePermissions('reviews.tokens')
+  regenerate(@Param('kind', new KindPipe()) kind: string, @Param('id') id: string, @CurrentUser() me: AuthUser) {
+    return this.reviews.regenerateCode(this.target(kind, id), me.id);
+  }
+}
+
+@Module({ controllers: [ReviewsController, ReviewCodesController], providers: [ReviewsService] })
 export class ReviewsModule {}

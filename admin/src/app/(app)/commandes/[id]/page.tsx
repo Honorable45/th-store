@@ -18,6 +18,7 @@ import { cn } from '@/lib/cn';
 import { formatDateTime, formatPhone, formatPrice } from '@/lib/format';
 import { ORDER_STATUS, PAYMENT_METHODS, PAYMENT_PREFERENCE, SETTLEMENT } from '@/lib/labels';
 import { useResource } from '@/lib/use-resource';
+import { ReviewCodePanel } from '@/components/admin/review-code-panel';
 
 interface OrderItem {
   id: string;
@@ -309,6 +310,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             onChange={(o) => (o ? setData(o as OrderDetail) : void reload())}
             disabledReason={order.status === 'CANCELLED' ? 'Commande annulée.' : null}
           />
+          {order.status !== 'CANCELLED' && <ReviewCodePanel kind="vente" id={order.id} customerPhone={order.customerPhone} />}
           {order.returns.length > 0 && (
             <Panel title="Retours">
               <ul className="space-y-2 text-[13.5px]">

@@ -47,7 +47,7 @@ export const PRIMARY_NAV: NavItem[] = [
 export const SECONDARY_NAV: NavItem[] = [
   { href: '/stocks', label: 'Stocks', icon: Boxes, permission: 'stock.read', badge: 'lowStock' },
   { href: '/commandes', label: 'Ventes', icon: ReceiptText, permission: 'orders.read' },
-  { href: '/avis', label: 'Avis', icon: MessageSquareText, permission: 'reviews.moderate', badge: 'reviewsPending' },
+  { href: '/avis', label: 'Avis', icon: MessageSquareText, permission: 'reviews.moderate' },
   { href: '/tarifs', label: 'Tarifs de réparation', icon: Tags, permission: 'repairs.read' },
   { href: '/approvisionnements', label: 'Approvisionnements', icon: Truck, permission: 'purchases.manage' },
   { href: '/fournisseurs', label: 'Fournisseurs', icon: ClipboardList, permission: 'suppliers.manage' },
