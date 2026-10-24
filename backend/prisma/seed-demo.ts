@@ -12,6 +12,7 @@
  */
 import { PrismaClient, PhoneGrade } from '@prisma/client';
 import { hash } from '@node-rs/argon2';
+import { randomReference } from '../src/common/counters';
 
 const prisma = new PrismaClient();
 const unsplash = (id: string) => `https://images.unsplash.com/photo-${id}`;
@@ -153,12 +154,10 @@ async function seed() {
     }
   }
 
-  let ref = await prisma.usedPhone.count();
   for (const ph of PHONES) {
     const b = brand(ph.brand);
     if (await prisma.usedPhone.findFirst({ where: { isDemo: true, modelName: ph.modelName, color: ph.color } })) continue;
-    ref++;
-    const reference = `TEL-D${String(ref).padStart(3, '0')}`;
+    const reference = await randomReference('TEL', async (r) => Boolean(await prisma.usedPhone.findUnique({ where: { reference: r } })));
     await prisma.usedPhone.create({
       data: {
         reference,

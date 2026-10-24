@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { PhoneCondition, PhoneGrade, Prisma, UsedPhoneStatus } from '@prisma/client';
 import { presentImage } from '../catalog/presenters';
 import { AuditService } from '../common/audit.service';
-import { nextReference } from '../common/counters';
+import { randomReference } from '../common/counters';
 import { CryptoService, normalizeIdentifier } from '../common/crypto.service';
 import { slugify } from '../common/text';
 import { PrismaService, Tx } from '../prisma/prisma.service';
@@ -203,7 +203,7 @@ export class UsedPhonesService {
       const brand = await this.checkModel(tx, input.brandId, input.phoneModelId);
       const imei = this.imeiFields(input.imei);
       await this.checkDuplicates(tx, input, imei.imeiHash);
-      const reference = await nextReference(tx, 'TEL', 4);
+      const reference = await randomReference('TEL', async (r) => Boolean(await tx.usedPhone.findUnique({ where: { reference: r }, select: { id: true } })));
       const phone = await tx.usedPhone.create({
         data: {
           reference,

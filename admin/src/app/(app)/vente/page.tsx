@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Minus, Plus, Smartphone, Trash2 } from 'lucide-react';
+import { Check, Minus, Plus, Printer, Smartphone, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { CustomerPicker, type CustomerChoice } from '@/components/admin/customer-picker';
@@ -15,6 +15,7 @@ import { cn } from '@/lib/cn';
 import { formatPrice } from '@/lib/format';
 import { PAYMENT_METHODS } from '@/lib/labels';
 import { useDebounced } from '@/lib/use-resource';
+import { printSaleTicket, type TicketOrder } from '@/components/admin/receipts';
 
 interface PhoneHit {
   id: string;
@@ -85,6 +86,19 @@ export default function CounterSalePage() {
   };
   const setLine = (key: string, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
 
+  const [printingTicket, setPrintingTicket] = useState(false);
+  // Ticket de caisse : imprimé automatiquement à la fin de la vente, réimprimable depuis l'écran de confirmation.
+  const printTicket = async (orderId: string) => {
+    setPrintingTicket(true);
+    try {
+      await printSaleTicket(await api.get<TicketOrder>(`/orders/${orderId}`));
+    } catch (err) {
+      notify(`Ticket non imprimé : ${errorMessage(err)}`, 'bad');
+    } finally {
+      setPrintingTicket(false);
+    }
+  };
+
   const submit = async () => {
     setError(null);
     if (paid > total) return setError('Les règlements dépassent le total.');
@@ -103,6 +117,7 @@ export default function CounterSalePage() {
       });
       setDone(order);
       notify(`Vente ${order.number} enregistrée.`);
+      void printTicket(order.id);
       setLines([]);
       setCustomer({ name: '', phone: '' });
       setPayments([{ method: 'CASH', amount: '', ref: '' }]);
@@ -124,6 +139,9 @@ export default function CounterSalePage() {
         <p className="num mt-4 text-[22px] font-semibold">{formatPrice(done.total)}</p>
         {done.amountPaid < done.total && <p className="mt-1 text-[14px] text-bad">Reste à encaisser : {formatPrice(done.total - done.amountPaid)}</p>}
         <div className="mt-8 flex justify-center gap-3">
+          <Button variant="secondary" onClick={() => printTicket(done.id)} loading={printingTicket}>
+            <Printer className="size-4" /> Imprimer le ticket
+          </Button>
           <Button onClick={() => setDone(null)}>Nouvelle vente</Button>
           <Link href={`/commandes/${done.id}`} className="inline-flex h-10 items-center rounded-sm border border-line-2 bg-surface px-4 text-[14px] font-medium">
             Voir la vente

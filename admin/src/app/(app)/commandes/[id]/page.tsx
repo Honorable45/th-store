@@ -1,5 +1,6 @@
 'use client';
 
+import { Printer } from 'lucide-react';
 import Link from 'next/link';
 import { use, useState } from 'react';
 import { PaymentsPanel } from '@/components/admin/payments-panel';
@@ -19,6 +20,7 @@ import { formatDateTime, formatPhone, formatPrice } from '@/lib/format';
 import { ORDER_STATUS, PAYMENT_METHODS, PAYMENT_PREFERENCE, SETTLEMENT } from '@/lib/labels';
 import { useResource } from '@/lib/use-resource';
 import { ReviewCodePanel } from '@/components/admin/review-code-panel';
+import { printSaleTicket } from '@/components/admin/receipts';
 
 interface OrderItem {
   id: string;
@@ -200,6 +202,11 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           </span>
         }
       >
+        {order.status !== 'CANCELLED' && (
+          <Button variant="secondary" onClick={() => printSaleTicket(order).catch((err) => notify(errorMessage(err), 'bad'))}>
+            <Printer className="size-4" /> Ticket
+          </Button>
+        )}
         {can('orders.manage') && order.allowedTransitions.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {order.allowedTransitions.map((t) => (

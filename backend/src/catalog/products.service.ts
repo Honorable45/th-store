@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, ProductKind } from '@prisma/client';
 import { AuditService } from '../common/audit.service';
-import { nextReference } from '../common/counters';
+import { randomReference } from '../common/counters';
 import { cleanOptional, slugify } from '../common/text';
 import { StockService } from '../inventory/stock.service';
 import { PrismaService, Tx } from '../prisma/prisma.service';
@@ -104,7 +104,7 @@ export class ProductsService {
       await this.validateRefs(tx, input, kind);
       let sku = cleanOptional(input.sku)?.toUpperCase() ?? null;
       if (sku && (await tx.product.findUnique({ where: { sku } }))) throw new ConflictException('Cette référence existe déjà.');
-      sku ??= await nextReference(tx, kind === 'PART' ? 'PCE' : 'ACC', 5);
+      sku ??= await randomReference(kind === 'PART' ? 'PCE' : 'ACC', async (r) => Boolean(await tx.product.findUnique({ where: { sku: r }, select: { id: true } })));
 
       const product = await tx.product.create({
         data: {

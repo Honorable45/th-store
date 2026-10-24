@@ -7,11 +7,11 @@ import type { RepairDetail, StaffMember } from '@/lib/admin-types';
 import { formatDate, formatDateTime, formatPhone, formatPrice } from '@/lib/format';
 import { ROLES } from '@/lib/labels';
 import { Button } from '@/components/ui/button';
-import { Dialog } from '@/components/ui/dialog';
 import { Field, Input, Select, Textarea } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
 import { DetailList, Panel } from '../ui';
 import { useCan } from '../session';
+import { printDepositSlip } from '../receipts';
 
 type Update = (r: RepairDetail) => void;
 
@@ -139,38 +139,26 @@ export function WorkPanel({ repair, onUpdate, staff }: { repair: RepairDetail; o
 }
 
 /** Bon de dépôt imprimable remis au client. */
-export function TrackingPanel({ repair, shopName }: { repair: RepairDetail; shopName: string }) {
+/** Bon de dépôt (une page A4) remis au client, avec son code d'avis. */
+export function TrackingPanel({ repair }: { repair: RepairDetail }) {
+  const { notify } = useToast();
   const [printing, setPrinting] = useState(false);
+  const print = async () => {
+    setPrinting(true);
+    try {
+      await printDepositSlip(repair);
+    } catch (err) {
+      notify(errorMessage(err), 'bad');
+    } finally {
+      setPrinting(false);
+    }
+  };
   return (
     <Panel title="Bon de dépôt">
-      <Button size="sm" variant="secondary" onClick={() => setPrinting(true)}>
+      <p className="mb-3 text-[13px] text-muted">Une page à remettre au client : appareil, panne, montant et code d’avis.</p>
+      <Button size="sm" variant="secondary" onClick={print} loading={printing}>
         <Printer className="size-4" /> Imprimer le bon de dépôt
       </Button>
-      <Dialog open={printing} onClose={() => setPrinting(false)} title="Bon de dépôt" footer={<Button onClick={() => window.print()}><Printer className="size-4" /> Imprimer</Button>}>
-        <div className="print-area bg-white p-2 text-[13px] text-ink">
-          <div className="flex items-start justify-between border-b border-ink pb-3">
-            <div>
-              <p className="font-serif text-[22px] font-semibold">{shopName}</p>
-              <p className="text-[12px] text-muted">Bon de dépôt — réparation</p>
-            </div>
-            <div className="text-right">
-              <p className="font-mono text-[16px]">{repair.number}</p>
-              <p className="text-[12px]">{formatDateTime(repair.receivedAt)}</p>
-            </div>
-          </div>
-          <DetailList
-            className="mt-3"
-            items={[
-              ['Client', `${repair.customer.name} · ${formatPhone(repair.customer.phone)}`],
-              ['Appareil', `${repair.brandName} ${repair.modelName}`],
-              ['Panne signalée', repair.reportedIssue],
-              ['Montant convenu', repair.billedAmount ? formatPrice(repair.billedAmount) : 'Sur devis après diagnostic'],
-              ['Date prévue', repair.dueAt ? formatDate(repair.dueAt) : '—'],
-            ]}
-          />
-          <p className="mt-4 text-[11px] text-muted">Aucune intervention n’est réalisée sans votre accord sur le devis. Conservez ce bon : il est demandé lors du retrait.</p>
-        </div>
-      </Dialog>
     </Panel>
   );
 }

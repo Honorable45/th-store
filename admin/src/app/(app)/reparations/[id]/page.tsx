@@ -16,7 +16,6 @@ import { api } from '@/lib/api';
 import type { RepairDetail, StaffMember } from '@/lib/admin-types';
 import { formatDate, formatDateTime, formatPhone } from '@/lib/format';
 import { REPAIR_STATUS, SETTLEMENT } from '@/lib/labels';
-import type { PublicSettings } from '@/lib/types';
 import { useResource } from '@/lib/use-resource';
 
 export default function RepairPage({ params }: { params: Promise<{ id: string }> }) {
@@ -24,7 +23,6 @@ export default function RepairPage({ params }: { params: Promise<{ id: string }>
   const can = useCan();
   const { data: repair, error, reload, setData } = useResource<RepairDetail>(`/repairs/${id}`);
   const staff = useResource<StaffMember[]>('/users/staff');
-  const settings = useResource<PublicSettings>('/settings/public');
   const [suggested, setSuggested] = useState<number | null>(null);
 
   useEffect(() => {
@@ -113,7 +111,7 @@ export default function RepairPage({ params }: { params: Promise<{ id: string }>
             onChange={(r) => (r ? update(r as RepairDetail) : void reload())}
             disabledReason={repair.status === 'CANCELLED' ? 'Dossier annulé : aucun encaissement possible.' : !repair.billedAmount ? 'Fixez d’abord le montant facturé (devis accepté ou montant convenu).' : null}
           />
-          <TrackingPanel repair={repair} shopName={settings.data?.shopName ?? 'TH Store'} />
+          <TrackingPanel repair={repair} />
           {repair.status !== 'CANCELLED' && <ReviewCodePanel kind="reparation" id={repair.id} customerPhone={repair.customer.phone} />}
         </div>
       </div>
