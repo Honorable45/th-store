@@ -3,6 +3,7 @@ import localFont from 'next/font/local';
 import { ToastProvider } from '@/components/ui/toast';
 import './globals.css';
 import { SITE_URL } from '@/lib/site';
+import { ServiceWorkerRegister } from '@/components/site/pwa';
 
 // Polices auto-hébergées (licence SIL OFL) : aucun appel à un service tiers, chargement plus rapide.
 const serif = localFont({
@@ -41,11 +42,14 @@ export const metadata: Metadata = {
   title: { default: 'TH Store — Téléphones neufs, venus et d’occasion, accessoires et réparation', template: '%s · TH Store' },
   description: 'Téléphones neufs, venus d’Europe ou des États-Unis et d’occasion, accessoires pour toutes les marques et réparation avec devis en ligne. Prix en FCFA.',
   openGraph: { type: 'website', locale: 'fr_FR', siteName: 'TH Store' },
-  icons: { icon: '/icon.svg' },
+  icons: { icon: [{ url: '/icon.svg', type: 'image/svg+xml' }, { url: '/icon-192.png', sizes: '192x192', type: 'image/png' }], apple: '/apple-touch-icon.png' },
+  // Application installée sur iPhone : ouverte sans barre d'adresse.
+  appleWebApp: { capable: true, title: 'TH Store', statusBarStyle: 'default' },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#f5f3ee',
+  themeColor: '#0f2147',
   width: 'device-width',
   initialScale: 1,
 };
@@ -55,6 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr" className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
       <body>
         <ToastProvider>{children}</ToastProvider>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

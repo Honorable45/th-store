@@ -89,6 +89,13 @@ pnpm dev
 - Site : http://localhost:3000
 - Administration : http://localhost:3001 — compte créé par `db:seed` avec `SEED_MANAGER_EMAIL` / `SEED_MANAGER_PASSWORD` (à changer après la première connexion, menu « Mon compte »).
 
+### Application installable (PWA)
+
+Le site s'installe comme une application (Android : bouton « Installer l'application » en pied de page ou menu du navigateur ; iPhone : Partager › Sur l'écran d'accueil).
+- `frontend/src/app/manifest.ts` : nom, couleurs, icônes, raccourcis (Boutique, Accessoires, Devis).
+- `frontend/public/sw.js` : pages en réseau d'abord (prix toujours à jour), dernière version vue hors connexion, sinon `hors-ligne.html` ; `/api` jamais mis en cache. Changer `VERSION` pour purger les caches.
+- Icônes : `node frontend/scripts/generate-icons.mjs` (logotype « TH / STORE » sur bleu sombre).
+
 ### Importer le catalogue (production)
 
 Remplissez `catalogue/accessoires.csv`, `catalogue/telephones.csv` et `catalogue/photos/` (dossier exclu de Git ; guide : `catalogue/LISEZMOI.md`), puis :

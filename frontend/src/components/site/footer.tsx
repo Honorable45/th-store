@@ -4,6 +4,7 @@ import { formatPhone } from '@/lib/format';
 import { directionsUrl } from '@/lib/maps';
 import { Logo } from './logo';
 import { OpeningHours } from './opening-hours';
+import { InstallButton } from './pwa';
 import { SocialLinks } from './social';
 
 export function SiteFooter({ settings: s }: { settings: PublicSettings | null }) {
@@ -14,6 +15,7 @@ export function SiteFooter({ settings: s }: { settings: PublicSettings | null })
         <div>
           <Logo logoUrl={null} name={s?.shopName} inverted />
           <SocialLinks settings={s} className="mt-6" />
+          <InstallButton className="mt-5" />
           <p className="num mt-4 text-[14px] text-paper/80">{formatPhone(s?.phone ?? '+22870858801')}</p>
           {address && <p className="mt-1 text-[14px] text-paper/70">{address}</p>}
           {directionsUrl(s) && (
